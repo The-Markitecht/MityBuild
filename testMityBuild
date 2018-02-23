@@ -1,0 +1,195 @@
+#!/usr/bin/env tclsh
+
+source [file join [file dirname [info script]] libMityBuild]
+
+proc assert {exp {msg {}}} {
+    tracer asserts "testing: $exp"
+    if {$msg eq {}} {set msg "assert failed: $exp"}
+    set result [uplevel 1 "expr {$exp}"]
+    if $result {} else {error $msg}
+}
+
+set testRecipes {
+    # these recipes are wrapped in a big brace block for testing purposes.  that's not normal.
+
+    recipe toolsClang {} {
+        # Clang toolchain settings for all recipes.  for clang with their libc++.
+        # see recipe toolsCcDefault for explanations.
+        export cc clang++  ;# Clang for the PC host's operating system.
+        export ld $cc  ;# use same tool again for linking.
+        export commonOptions [list -pipe -O$optim -g3 -Wall -fmessage-length=0 -fPIC]
+        export sourceDependencyOptions [list -MMD -MT sources] ;# causes dumping source file dependency list into .d file.
+        export cLanguageOptions [list {*}$commonOptions -c -xc++ -std=c++14 -stdlib=libc++ {*}$sourceDependencyOptions]
+        export asmLanguageOptions [list {*}$commonOptions -c -xassembler-with-cpp {*}$sourceDependencyOptions]
+        export linkerOptions [list {*}$commonOptions -std=c++14 -stdlib=libc++ -pthread]
+        export libOptions [list -fpic -shared] ;# -rdynamic
+    } run {}
+
+    recipe emptyBuild {} {} run {}
+
+    recipe testFileTree {} {} run {
+        export testRoot [tempFilename]
+        file mkdir $testRoot
+        cd $testRoot
+        file mkdir a
+        cd a
+        file mkdir b
+        cd b
+        file mkdir c
+        file copy [file join $::builderDir libMityBuild] c
+        file mkdir d
+        file copy [file join $::builderDir libMityBuild] d
+        cd d
+        file mkdir e
+        file copy [file join $::builderDir libMityBuild] e
+    }        
+
+    recipe settings1 {} {} run {}
+
+    recipe test1 {} {} run {
+        require top
+        assert {{paths} ni [info vars]}
+    }
+
+    recipe top {} {} run {
+        set topvar isTop
+        array set a {5 five}
+        require second
+        assert {$paths eq [list p1 p2]}
+        require topsibling
+    }
+
+    recipe second {} {} run {
+        assert {$topvar eq {isTop}}
+        export paths [list p1]
+        assert {$paths eq [list p1]}
+        require third
+        require sibling
+        tracer tests "second paths $paths"
+    }
+
+    recipe third {} {} run {
+        assert {$paths eq [list p1]}
+        require fourth
+        assert {$paths eq [list p1 p2]}
+    }
+
+    recipe fourth {} {} run {
+        assert {$paths eq [list p1]}
+        export+ paths p2
+        assert {$paths eq [list p1 p2]}
+    }
+
+    recipe sibling {} {} run {
+        assert {$paths eq [list p1 p2]}
+    }
+
+    recipe topsibling {} {} run {
+        assert {$paths eq [list p1 p2]}
+    }
+
+    recipe settings2 {} {} run {}
+
+    recipe test2 {} {} run {
+        require testFileTree
+        recurseDepthFirst $testRoot lib* [notHiddenPattern]  {
+            x ls -l $fn
+        }
+        recurseBreadthFirst $testRoot lib* [notHiddenPattern]  {
+            x ls -l $fn
+        }
+    }
+    
+    recipe settings3 {} {} run {}
+
+    recipe test3 {} {} run {
+        require testFileTree
+        set myFiles [list]
+        recurseDepthFirst $testRoot lib* [notHiddenPattern]  {
+            export myFiles [linsert $myFiles 0 $fn] ;# reversing order.
+        }
+        puts stderr recurse:[llength $myFiles]:$myFiles
+        assert {[llength $myFiles] == 3}
+        assert {[lindex $myFiles 0] == [file join $testRoot a b c libMityBuild]}
+    }
+
+    recipe settings4 {} {} run {}
+
+    recipe test4 {} {} run {
+        require testFileTree
+        cd $testRoot
+        set f [open main.cpp w]
+        puts $f {
+            #include <iostream>
+            int main(int argc, char* argv[]) {
+                std::cout << "hello" << std::endl;
+            }
+        }
+        close $f
+        require toolsClang
+        require compileAndLink testProgram linkExecutable $testRoot \
+            [findFiles {*.cpp *.CPP} [notHiddenPattern] $testRoot] 
+        assert {[file exists testProgram]}
+        set output [x ./testProgram 2>@stderr <@stdin]
+        assert {[string trim $output] eq {hello}}
+    }
+
+    recipe settings5 {} {} run {}
+
+    recipe test5 {} {} run {
+        # testing findFiles to verify it works.
+        require testFileTree
+        set allFns myOldFileList 
+        set all [findFiles lib* [notHiddenPattern] $testRoot]
+        tracer tests "found: $all"
+        assert {[llength $all] == 3}    
+        assert {[lindex $all 0] == [file join $testRoot a b d e libMityBuild]}
+        # also testing whether findFiles leaks an export of allFns.
+        assert {$allFns eq {myOldFileList}}
+    }
+
+    recipe settings6 {} {
+        require tools Clang
+    } run {}
+
+    recipe test6 {} {} run {
+        assert {$cc eq {clang++}}
+        require foreignLibraryTest
+        assert {$cc eq {clang++}}
+    }
+    
+    recipe foreignLibraryTest {} {} run {
+        trapExports $toolVars
+        assert {$cc eq {clang++}}
+        require toolsForeign
+        assert {$cc eq {special-gcc}}
+        require compileForeign
+    }
+    
+    recipe toolsForeign {} {
+        export cc special-gcc
+        assert {$cc eq {special-gcc}}
+    } run {}
+    
+    recipe compileForeign {} {} run {
+        assert {$cc eq {special-gcc}}
+    }
+}
+
+puts stderr ===============================================
+set doDebug [expr {{debug} in $::argv}]
+eval $testRecipes
+for {set i 1} {[dict exists $::recipes test$i]} {incr i} {
+    # re-initialize the builder library before each test.
+    source [file join $::builderDir libMityBuild]
+    # define a batch of recipes required for this test.
+    eval $testRecipes
+    # artificially set command-line parameters.
+    set ::argv [list {trace tests asserts builderStack commands} test$i]
+    # execute the build, and trace the progress.
+    tracer tests "running test$i"
+    if $doDebug startDebug
+    runMityBuild settings$i CcDefault
+    tracer tests "passed test$i"
+}
+
