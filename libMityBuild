@@ -123,28 +123,28 @@ proc isNewer {objectFn sourceFns} {
 proc recurseDepthFirst {dir filePattern dirPattern script} {
     tracer recurse "recurseDepthFirst $dir $filePattern $dirPattern"
     importLocals 
-    set dirs [glob -nocomplain -types d -join -- $dir $dirPattern] 
-    foreach child $dirs {
+    set dirs [glob -nocomplain -types d -join -- $dir $dirPattern]
+    foreach child [lsort $dirs] {
         recurseDepthFirst $child $filePattern $dirPattern $script
     }
     set files [glob -nocomplain -types f -join -- $dir $filePattern] 
-    foreach fn $files $script
+    foreach fn [lsort $files] $script
 }
 
 proc recurseBreadthFirst {dir filePattern dirPattern script} {
     tracer recurse "recurseBreadthFirst $dir $filePattern $dirPattern $dir"
     importLocals 
     set files [glob -nocomplain -types f -join -- $dir $filePattern] 
-    foreach fn $files $script
+    foreach fn [lsort $files] $script
     set dirs [glob -nocomplain -types d -join -- $dir $dirPattern] 
-    foreach child $dirs {
+    foreach child [lsort $dirs] {
         recurseBreadthFirst $child $filePattern $dirPattern $script
     }
 }
 
 proc notHiddenPattern {} {
     # returns a filename pattern that skips hidden files and dirs (those that start with a dot).
-    return {[a-z0-9]*}
+    return {[a-zA-Z0-9]*}
 }
 
 proc findFiles {filePatternsList dirPattern dir} {
