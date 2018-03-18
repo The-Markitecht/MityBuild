@@ -106,11 +106,12 @@ set testRecipes {
         require testFileTree
         set myFiles [list]
         recurseDepthFirst $testRoot lib* [notHiddenPattern]  {
-            export myFiles [linsert $myFiles 0 $fn] ;# reversing order.
+            # reversing order; this tests list manipulation on exported vars.
+            export myFiles [linsert $myFiles 0 $fn]
         }
-        puts stderr recurse:[llength $myFiles]:$myFiles
+        tracer tests recurse:[llength $myFiles]:$myFiles
         assert {[llength $myFiles] == 3}
-        assert {[lindex $myFiles 0] == [file join $testRoot a b c libMityBuild]}
+        assert {[lindex $myFiles 0] == [file join $testRoot a b d libMityBuild]}
     }
 
     recipe settings4 {} {} run {}
@@ -143,7 +144,11 @@ set testRecipes {
         set all [findFiles lib* [notHiddenPattern] $testRoot]
         tracer tests "found: $all"
         assert {[llength $all] == 3}    
-        assert {[lindex $all 0] == [file join $testRoot a b d e libMityBuild]}
+        assert {$all eq [list  \
+            [file join $testRoot a b c libMityBuild]  \
+            [file join $testRoot a b d libMityBuild]  \
+            [file join $testRoot a b d e libMityBuild]  \
+        ]}
         # also testing whether findFiles leaks an export of allFns.
         assert {$allFns eq {myOldFileList}}
     }
@@ -176,8 +181,16 @@ set testRecipes {
     }
 }
 
+proc testRemainder {} {
+    set fn {/media/android/Internal shared storage/Android/data/com.amazon.kindle/files/appexpan/nlnAssets_high_res/1/land/nln_brochure_card_2.jpg}
+    set dest [remainder $fn {/media/android}]
+    tracer tests "dest $dest"
+    assert {$dest eq {Internal shared storage/Android/data/com.amazon.kindle/files/appexpan/nlnAssets_high_res/1/land/nln_brochure_card_2.jpg}}
+}
+
 puts stderr ===============================================
 set doDebug [expr {{debug} in $::argv}]
+testRemainder
 eval $testRecipes
 for {set i 1} {[dict exists $::recipes test$i]} {incr i} {
     # re-initialize the builder library before each test.

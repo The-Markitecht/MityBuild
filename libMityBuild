@@ -97,7 +97,7 @@ proc tempFilename {} {
     # each call returns a new unique file name (with absolute path) suitable to write a temporary file.
     after 1
     set dir [findImportLocal tempFileDir tempFilename:]
-    return [file join $dir "TinyBuild-[clock microseconds].tmp"]
+    return [file join $dir "MityBuild-[clock microseconds].tmp"]
 }
 
 proc isNewer {objectFn sourceFns} {
@@ -151,7 +151,7 @@ proc findFiles {filePatternsList dirPattern dir} {
     set allFns [list]
     trapExports allFns ;# in case the caller was also using this name for a local, it should remain unaffected.
     foreach filePattern $filePatternsList {
-        recurseDepthFirst  $dir  $filePattern  $dirPattern  {
+        recurseBreadthFirst  $dir  $filePattern  $dirPattern  {
             tracer recurse "found $fn"
             export+ allFns $fn
         }
@@ -164,7 +164,7 @@ proc remainder {fn root} {
     # this function is as lenient as possible; it resolves any relative paths, symlinks, and extraneous dots and slashes.
     # it will throw an error if the file truly falls outside the given root dir.
     set fn [file normalize [file join [pwd] $fn]]
-    set parts [file split [file dirname $fn]]
+    set parts [file split $fn]
     set root [file normalize [file join [pwd] $root]]
     set rootParts [file split $root]
     if {[lrange $parts 0 [llength $rootParts]-1] ne $rootParts} {
@@ -475,8 +475,8 @@ recipe compileAndLink {binFn linkType sourceRootDir sourceFns} {} run {
     foreach source $sourceFns {
         # invoke compiler recipe once for this source file alone, accumulating a list of linkerObjFns.
         set objBare [file rootname [file tail $source]].o
-        set r [remainder $source $sourceRootDir]
-        set objFull [file join [file dirname $binFn] $r $objBare]
+        set childDir [remainder [file dirname $source] $sourceRootDir]
+        set objFull [file join [file dirname $binFn] $childDir $objBare]
         require compile $objFull $source
     }
     # link all linkerObjFns together into a binary.
@@ -703,6 +703,7 @@ proc ccGetSourceFileDependencies {sourceFn  objectFn} {
 recipe toolsClang {} {
     # Clang toolchain settings usable for all recipes.  for clang with their libc++.
     # see recipe toolsCcDefault for explanations.
+    # sudo apt-get install libc++-dev
     export cc clang++  ;# Clang for the PC host's operating system.
     export ld $cc  ;# use same tool again for linking.
     export commonOptions [list -pipe -O$optim -g3 -Wall -fmessage-length=0 -fPIC]
