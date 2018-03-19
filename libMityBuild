@@ -209,6 +209,7 @@ proc runMityBuild {projectInitRecipe_  defaultToolchain_  args} {
         # as a special case, 'trace' or 'tools' recipes are allowed to execute even before project init recipes.
         # the local variables here all end with an underscore so they won't import to the project's recipes.
         # however, any other locals that are exported to here by the recipes will be imported into subsequent recipes as usual.
+        cd $::builderDir ;# cd into the script's own directory, in case it was executed from elsewhere.
         set initDone_ 0
         foreach cmd_ $::argv {
             set name_ [lindex $cmd_ 0]
@@ -771,5 +772,4 @@ recipe toolsGccArmClangLib {} {
 ############### INITIALIZE LIBMITYBUILD #####################
 package require Tcl 8.6
 set ::builderDir [file normalize [file join [pwd] [file dirname [info script]]]]
-cd $::builderDir ;# cd into the script's own directory, in case it was executed from elsewhere.
 
