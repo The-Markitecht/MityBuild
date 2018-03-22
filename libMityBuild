@@ -161,7 +161,8 @@ proc findFiles {filePatternsList dirPattern dir} {
 
 proc remainder {fn root} {
     # identify and ignore the given prefix 'root' on front of the given filename 'fn'.  return the remaining portion.
-    # this function is as lenient as possible; it resolves any relative paths, symlinks, and extraneous dots and slashes.
+    # this function is as lenient as possible; it resolves any relative paths, 
+    # symlinks, and extraneous dots and slashes.  relative paths are resolved from the current working dir.
     # it will throw an error if the file truly falls outside the given root dir.
     set fn [file normalize [file join [pwd] $fn]]
     set parts [file split $fn]
