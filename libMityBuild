@@ -2,7 +2,7 @@
 
 # MityBuild
 # by Mark Hubbard.
-# this is a small, simple project builder tool that still provides impressive control, ease, and flexibility.
+# this is a small, simple project builder tool that still provides impressive power, ease, flexibility, and control.
 
 # ########### FILESYSTEM, OS, AND UTILITY ROUTINES ###############
 
@@ -58,9 +58,7 @@ proc x {args} {
     # note that redirecting to stdout is the default in this routine.
     # to override that, specify one or more redirects along with the tool options.
     tracer commands "Run in [pwd]:\n    $args" ;# output verbose format.
-    if [check trace commandsQuiet] { ;# output a "quiet" copy suitable for pasting into a shell.
-        puts stderr "cd \"[pwd]\"\n$args" ;# arguments containing spaces will be output with {} around them.  just replacing those with double quotes in a text editor typically will make the command runnable when pasted into a shell.  that's not done here already because sometimes arguments already contain double quotes, and then there's no automated way to fix them.
-    }
+    showScript $args
     if {[lsearch -regexp $args ^>|^2>|^< ] < 0} {
         # found no argument starting with > or 2> or < chars.  add 3 standard i/o redirections.
         lappend args <@stdin >@stdout 2>@stderr
@@ -68,9 +66,20 @@ proc x {args} {
     try {
         return [exec -ignorestderr {*}$args ]
     } trap {} err {
+        #TODO: capture child process's exit status number.  see my own example code.
         puts stderr "MityBuild: Toolchain program failed:\n$args\nMityBuild aborting."
         if [check trace calls] {traceCalls stderr}
         exit 1
+    }
+}
+
+proc showScript {argList} {
+    # output a "scriptable" copy of the given command, suitable for pasting into a shell.
+    #TODO: also capture file copy, move, mkdir, delete, etc. this way.
+    if [check trace script] { 
+        set argList [lmap a $argList {string map [list \" \\\" ] [string trim $a \" ]}]
+        puts stderr "cd \"[pwd]\""
+        puts stderr "\"[join $argList {" "}]\""
     }
 }
 
