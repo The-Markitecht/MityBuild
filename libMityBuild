@@ -57,29 +57,88 @@ proc x {args} {
     # return from the routine any output that wasn't redirected to stdout.
     # note that redirecting to stdout is the default in this routine.
     # to override that, specify one or more redirects along with the tool options.
+    
+    # if the first argument begins with a dash, it's assumed to be one of the following
+    # error handling modes.  these determine the action if the child fails to launch
+    # e.g. because the specified executable is not found, or if the child exits with
+    # a non-zero exit status.
+    # -abort means abort the build, provide troubleshooting messages on stderr, 
+    # and exit the Tcl interpreter (status 1).  this is the default action.  
+    # it prevents displaying (or saving to disk) a large Tcl stack trace simply because a tool failed.
+    # -throw means throw a Tcl error with a descriptive message, which can be trapped by
+    # try or catch.  
+    # -ignore means do nothing.
+    
+    # in all cases, variable childExitStatus is set in the caller's stack frame.
+    # it is an integer if it could be determined from the child, otherwise empty string
+    # e.g. because the child failed to launch, or was killed by a kernel signal.
+    
+    set errorAction [lindex $args 0]
+    if [string match -* $errorAction] {
+        if {$errorAction ni [list -abort -throw -ignore]} {
+            error "Unrecognized option: $errorAction"
+        }
+        set args [lrange $args 1 end]
+    } else {
+        set errorAction -abort
+    }
     tracer commands "Run in [pwd]:\n    $args" ;# output verbose format.
     showScript $args
     if {[lsearch -regexp $args ^>|^2>|^< ] < 0} {
         # found no argument starting with > or 2> or < chars.  add 3 standard i/o redirections.
         lappend args <@stdin >@stdout 2>@stderr
     }
+    upvar childExitStatus childExitStatus
+    set childExitStatus {}
     try {
-        return [exec -ignorestderr {*}$args ]
-    } trap {} err {
-        #TODO: capture child process's exit status number.  see my own example code.
-        puts stderr "MityBuild: Toolchain program failed:\n$args\nMityBuild aborting."
-        if [check trace calls] {traceCalls stderr}
-        exit 1
+        set output [exec -ignorestderr {*}$args ]
+        set childExitStatus 0
+        return $output
+    } trap {} {errText errDict} {
+        set sm {}
+        if [dict exists $errDict -errorcode] {
+            lassign [dict get $errDict -errorcode] detectionMethod pid ces
+            if {$detectionMethod eq {CHILDSTATUS}} {
+                set childExitStatus $ces
+                set sm " with exit status $ces"
+            } 
+        }
+        if {$errorAction eq {-abort}} {
+            puts stderr "MityBuild: Toolchain program failed$sm:\n$args\nMityBuild aborting."
+            if [check trace calls] {traceCalls stderr}
+            exit 1
+        } elseif {$errorAction eq {-throw}} {
+            error "Toolchain program failed$sm: $args"
+        }
     }
+}
+
+proc quoteForBash {argList} {
+    # pass a Tcl list.
+    # return a string containing one bash shell word for each element in the given list.
+    # each word is quoted as necessary for reliable use in bash shell.
+    set all {}
+    set delim {}
+    foreach a $argList {
+        if [regexp -nocase -expanded { [^a-z0-9/._-] } $a] {
+            # surround with double quotes, first removing any existing surrounding ones,
+            # and escape any in the middle with a backslash.
+            append all "$delim\"[string map [list \" \\\" ] [string trim $a \" ]]\""
+        } else {
+            # no bash-sensitive characters; use word as-is.
+            append all "$delim$a"
+        }
+        set delim { }
+    }
+    return $all
 }
 
 proc showScript {argList} {
     # output a "scriptable" copy of the given command, suitable for pasting into a shell.
     #TODO: also capture file copy, move, mkdir, delete, etc. this way.
     if [check trace script] { 
-        set argList [lmap a $argList {string map [list \" \\\" ] [string trim $a \" ]}]
-        puts stderr "cd \"[pwd]\""
-        puts stderr "\"[join $argList {" "}]\""
+        puts stderr [quoteForBash [list cd [pwd]]]
+        puts stderr "    [quoteForBash $argList]"
     }
 }
 
