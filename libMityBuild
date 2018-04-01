@@ -72,6 +72,8 @@ proc x {args} {
     # in all cases, variable childExitStatus is set in the caller's stack frame.
     # it is an integer if it could be determined from the child, otherwise empty string
     # e.g. because the child failed to launch, or was killed by a kernel signal.
+
+    #TODO: find out why this throws an error in some environments (Geany, SystemD) when << redirection is used.
     
     set errorAction [lindex $args 0]
     if [string match -* $errorAction] {
@@ -142,6 +144,7 @@ proc showScript {argList} {
     }
 }
 
+clock format 0 ;# make sure clock packages get loaded before redefining ::unknown; their loading depends on it.
 proc ::unknown {cmd args} {
     error "Invalid command name '$cmd'.  Did you mean 'require $cmd'?"
 }
