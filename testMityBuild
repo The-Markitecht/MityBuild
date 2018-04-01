@@ -12,6 +12,8 @@ proc assert {exp {msg {}}} {
 set testRecipes {
     # these recipes are wrapped in a big brace block for testing purposes.  that's not normal.
 
+    recipe final {} {} run {}
+
     recipe toolsClang {} {
         # Clang toolchain settings for all recipes.  for clang with their libc++.
         # see recipe toolsCcDefault for explanations.
@@ -202,7 +204,7 @@ for {set i 1} {[dict exists $::recipes test$i]} {incr i} {
     # execute the build, and trace the progress.
     tracer tests "running test$i"
     if $doDebug startDebug
-    runMityBuild settings$i CcDefault
+    runMityBuild settings$i final CcDefault
     tracer tests "passed test$i"
 }
 

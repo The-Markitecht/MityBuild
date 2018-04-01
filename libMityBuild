@@ -245,9 +245,10 @@ proc remainder {fn root} {
 
 # ########### RECIPE PARADIGM PLUMBING ROUTINES ###############
 
-proc runMityBuild {projectInitRecipe_  defaultToolchain_  args} {
+proc runMityBuild {projectInitRecipe_  projectFinalRecipe_  defaultToolchain_  args} {
     # this is the builder's main routine, suitable for parsing the command line and driving the build as a whole.
     # when calling, pass the name of the recipe to aways call first, to set up project settings etc.
+    # also pass the recipe to always call last, for any odd work to wrap up the build.
     # also pass the recipe (and any arguments it requires) for the default toolchain for the build.
 
     try {
@@ -295,6 +296,7 @@ proc runMityBuild {projectInitRecipe_  defaultToolchain_  args} {
                 return [puts stderr "MityBuild: Aborting build: Command '$name_' is not recognized as an ordinary proc, nor any of the project's recipes:\n[lsort [dict keys $::recipes]]"]
             }
         }
+        require $projectFinalRecipe_
         if [check trace calls] {traceCalls stderr}
         
     } trap {} {err errDict} {
