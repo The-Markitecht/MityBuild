@@ -46,9 +46,67 @@ set testRecipes {
         file copy [file join $::builderDir libMityBuild] e
     }        
 
-    recipe settings1 {} {} run {}
+    recipe settings5 {} {} run {}
+    
+    recipe test5 {} {} run {
+        # shorthand assignments with literals.
+        a = 5
+        assert {$a == 5}
+        a := 5 * 10
+        assert {$a == 50}
+        # shorthand indexing with literals.
+        people = [dict create mark 40 julie 45 kids [dict create aiden 9 andrea 8]]
+        assert {[people@mark] == 40}
+        assert {[people@kids@andrea] == 8}
+        assert {[people@kids@jackie 3] == 3}
+        lt = {zero one two three four}
+        assert {[lt#1] eq {one}}
+        assert {[lt#1#end-1] eq {one two three}}
+        # variables in expressions.
+        i := $a / 5
+        assert {$i == 10}
+        i := $a/5
+        assert {$i == 10}
+        # variables in indices.
+        kid = aiden
+        assert {[people@kids@$kid] == 9}
+        i = 3
+        assert {[lt#end-$i] == {one}}
+return
+        # shorthand dict set.
+        people@bob = 48
+        assert {[dict get $people bob] == 48}
+        people@kids@sheldon = 10
+        assert {[dict get $people kids sheldon] == 10}
+        people@kids@leonard := [people@kids@sheldon] + 2
+        assert {[dict get $people kids leonard] == 12}
+        # ... with variable indices.
+        name = siri
+        people@$name = 30
+        assert {[people@siri] == 30}
+        people@$name := people@$name + 2
+        assert {[people@siri] == 32}
+        # variable dict name and indices combined.
+        name = people@kids@leonard
+        assert {[$name] == 12}
+        $name = 14
+        assert {[$name] == 14}
+        $name := [$name] + 2
+        assert {[$name] == 16}
+    }
 
-    recipe test1 {} {} run {
+    recipe settings18 {} {} run {}
+
+    recipe test18 {} {} run {
+        set fn {/media/android/Internal shared storage/Android/data/com.amazon.kindle/files/appexpan/nlnAssets_high_res/1/land/nln_brochure_card_2.jpg}
+        set dest [remainder $fn {/media/android}]
+        tracer tests "dest $dest"
+        assert {$dest eq {Internal shared storage/Android/data/com.amazon.kindle/files/appexpan/nlnAssets_high_res/1/land/nln_brochure_card_2.jpg}}
+    }
+
+    recipe settings20 {} {} run {}
+
+    recipe test20 {} {} run {
         require top
         assert {{paths} ni [info vars]}
     }
@@ -90,9 +148,9 @@ set testRecipes {
         assert {$paths eq [list p1 p2]}
     }
 
-    recipe settings2 {} {} run {}
+    recipe settings25 {} {} run {}
 
-    recipe test2 {} {} run {
+    recipe test25 {} {} run {
         require testFileTree
         recurseDepthFirst $testRoot lib* [notHiddenPattern]  {
             x ls -l $fn
@@ -102,9 +160,9 @@ set testRecipes {
         }
     }
     
-    recipe settings3 {} {} run {}
+    recipe settings30 {} {} run {}
 
-    recipe test3 {} {} run {
+    recipe test30 {} {} run {
         require testFileTree
         set myFiles [list]
         recurseDepthFirst $testRoot lib* [notHiddenPattern]  {
@@ -116,9 +174,9 @@ set testRecipes {
         assert {[lindex $myFiles 0] == [file join $testRoot a b d libMityBuild]}
     }
 
-    recipe settings4 {} {} run {}
+    recipe settings40 {} {} run {}
 
-    recipe test4 {} {} run {
+    recipe test40 {} {} run {
         require testFileTree
         cd $testRoot
         set f [open main.cpp w]
@@ -137,9 +195,9 @@ set testRecipes {
         assert {[string trim $output] eq {hello}}
     }
 
-    recipe settings5 {} {} run {}
+    recipe settings50 {} {} run {}
 
-    recipe test5 {} {} run {
+    recipe test50 {} {} run {
         # testing findFiles to verify it works.
         require testFileTree
         set allFns myOldFileList 
@@ -155,11 +213,11 @@ set testRecipes {
         assert {$allFns eq {myOldFileList}}
     }
 
-    recipe settings6 {} {
+    recipe settings60 {} {
         require tools Clang
     } run {}
 
-    recipe test6 {} {} run {
+    recipe test60 {} {} run {
         assert {$cc eq {clang++}}
         require foreignLibraryTest
         assert {$cc eq {clang++}}
@@ -183,28 +241,23 @@ set testRecipes {
     }
 }
 
-proc testRemainder {} {
-    set fn {/media/android/Internal shared storage/Android/data/com.amazon.kindle/files/appexpan/nlnAssets_high_res/1/land/nln_brochure_card_2.jpg}
-    set dest [remainder $fn {/media/android}]
-    tracer tests "dest $dest"
-    assert {$dest eq {Internal shared storage/Android/data/com.amazon.kindle/files/appexpan/nlnAssets_high_res/1/land/nln_brochure_card_2.jpg}}
-}
-
 puts stderr ===============================================
-set doDebug [expr {{debug} in $::argv}]
-testRemainder
+set i [lsearch -exact $::argv debug]
+if {$i >= 0} {set debugNames [lindex $::argv ${i}+1]}
 eval $testRecipes
-for {set i 1} {[dict exists $::recipes test$i]} {incr i} {
-    # re-initialize the builder library before each test.
-    source [file join $::builderDir libMityBuild]
-    # define a batch of recipes required for this test.
-    eval $testRecipes
-    # artificially set command-line parameters.
-    set ::argv [list {trace tests asserts builderStack commands} test$i]
-    # execute the build, and trace the progress.
-    tracer tests "running test$i"
-    if $doDebug startDebug
-    runMityBuild settings$i final CcDefault
-    tracer tests "passed test$i"
+for {set i 1} {$i < 1000} {incr i} {
+    if [dict exists $::recipes test$i] {
+        # re-initialize the builder library before each test.
+        source [file join $::builderDir libMityBuild]
+        # define a batch of recipes required for this test.
+        eval $testRecipes
+        # artificially set command-line parameters.
+        set ::argv [list {trace tests asserts builderStack commands} test$i]
+        # execute the build, and trace the progress.
+        tracer tests "running test$i"
+        if [info exists debugNames] {startDebug $debugNames}
+        runMityBuild settings$i final CcDefault
+        tracer tests "passed test$i"
+    }
 }
 

@@ -44,11 +44,18 @@ proc traceCallsRecurse {channel callSerial indent} {
 }
 
 proc debugExecute {cmd args} {
-    catch {puts stderr ">> in [lindex [info level -1] 0]: [string range $cmd 0 127]"}
+    catch {
+        set name [lindex [info level -1] 0]
+        if {$name in $::debugProcs || {*} in $::debugProcs} {
+            puts stderr ">> in $name: [string range $cmd 0 127]"
+        }
+    }
 }
 
-proc startDebug {} {
-    # turn on tracing of each line of code that runs.
+proc startDebug {args} {
+    # turn on tracing of each line of code that runs in any of the given procs.
+    # if one of those is * then all procs are debugged.
+    set ::debugProcs $args
     trace add execution runMityBuild enterstep debugExecute
 }
 
@@ -145,7 +152,47 @@ proc showScript {argList} {
 }
 
 clock format 0 ;# make sure clock packages get loaded before redefining ::unknown; their loading depends on it.
-proc ::unknown {cmd args} {
+proc ::unknown {args} {
+    puts "unknown: $args"
+    lassign $args cmd one two
+    puts "infix: $one"
+    if {$one eq {=}} {
+        # infix = means assign by substitution, like an ordinary Tcl [set].
+        if {[llength $args] > 3} {
+            error "Extra words in assignment: [string range $args 0 50]"
+        }
+        upvar $cmd var
+        set var [uplevel 1 [list subst $two]]
+        return $var
+    } elseif {$one eq {:=}} {
+        # infix := means assign from an expression.
+        upvar $cmd var
+        set var [uplevel 1 [list expr [lrange $args 2 end]]]
+        return $var
+    }
+    set parts [split $cmd @]
+    if {[llength $parts] > 1} {
+        # name@idx@idx@idx means fetch from (possibly nested) dictionary.
+        upvar [lindex $parts 0] d
+        set indices [lrange $parts 1 end]
+        if {[llength $args] == 2 && ! [dict exists $d {*}$indices]} {
+            # an argument is given also.  that's the default value if none found.
+            return $one
+        } else {
+            return [dict get $d {*}$indices]
+        }
+    }
+    set parts [split $cmd #]
+    lassign $parts name start end
+    if {$end eq {}} {
+        # name#idx means fetch from list element.
+        upvar $name lt
+        return [lindex $lt $start]
+    } else {
+        # name#start#end means fetch from list range.
+        upvar $name lt
+        return [lrange $lt $start $end]
+    }            
     error "Invalid command name '$cmd'.  Did you mean 'require $cmd'?"
 }
 
