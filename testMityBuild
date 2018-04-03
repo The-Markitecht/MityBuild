@@ -54,6 +54,11 @@ set testRecipes {
         assert {$a == 5}
         a := 5 * 10
         assert {$a == 50}
+        # allow literal equal signs also.
+        set s [list = 2]
+        assert {$s == {= 2}}
+        set s [list := 2]
+        assert {$s == {:= 2}}
         # shorthand indexing with literals.
         people = [dict create mark 40 julie 45 kids [dict create aiden 9 andrea 8]]
         assert {[people@mark] == 40}
