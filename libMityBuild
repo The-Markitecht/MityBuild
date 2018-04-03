@@ -364,7 +364,7 @@ proc runMityBuild {projectInitRecipe_  projectFinalRecipe_  defaultToolchain_  a
                 return [puts stderr "MityBuild: Aborting build: Command '$name_' is not recognized as an ordinary proc, nor any of the project's recipes:\n[lsort [dict keys $::recipes]]"]
             }
         }
-        require $projectFinalRecipe_
+        if {$projectFinalRecipe_ ne {}} {require $projectFinalRecipe_}
         if [check trace calls] {traceCalls stderr}
         
     } trap {} {err errDict} {
