@@ -91,7 +91,7 @@ proc x {args} {
         if {$errorAction ni [list -abort -throw -ignore]} {
             error "Unrecognized option: $errorAction"
         }
-        set args [lrange $args 1 end]
+        set args [args^1^end]
     } else {
         set errorAction -abort
     }
@@ -157,6 +157,7 @@ proc showScript {argList} {
 
 clock format 0 ;# make sure clock packages get loaded before redefining ::unknown; their loading depends on it.
 proc ::unknown {args} {
+    puts "::unknown $args"
     lassign $args cmd one two
     set dParts [split $cmd @]
     set isDict [expr {[llength $dParts] > 1}]
@@ -200,14 +201,14 @@ proc ::unknown {args} {
             return [dict get $d {*}$indices]
         }
     }
-    set lParts [split $cmd #]
+    set lParts [split $cmd ^]
     lassign $lParts name start end
     if {$end eq {}} {
-        # name#idx means fetch from list element.
+        # name^idx means fetch from list element.  name must be an ordinary variable name.
         upvar $name lt
         return [lindex $lt $start]
     } else {
-        # name#start#end means fetch from list range.
+        # name^start^end means fetch from list range.  name must be an ordinary variable name.
         upvar $name lt
         return [lrange $lt $start $end]
     }            
@@ -304,11 +305,11 @@ proc remainder {fn root} {
     set parts [file split $fn]
     set root [file normalize [f+ [pwd] $root]]
     set rootParts [file split $root]
-    if {[lrange $parts 0 [llength $rootParts]-1] ne $rootParts} {
+    if {[parts^0^[llength $rootParts]-1] ne $rootParts} {
         error "File '$fn' falls outside of root dir '$root'."
     }
     if {[llength $parts] == [llength $rootParts]} {return {}}
-    return [f+ {*}[lrange $parts [llength $rootParts] end]]
+    return [f+ {*}[parts^[llength $rootParts]^end]]
 }
 
 # ########### RECIPE PARADIGM PLUMBING ROUTINES ###############
@@ -350,7 +351,7 @@ proc runMityBuild {projectInitRecipe_  projectFinalRecipe_  defaultToolchain_  a
         cd $::builderDir ;# cd into the script's own directory, in case it was executed from elsewhere.
         set initDone_ 0
         foreach cmd_ $::argv {
-            set name_ [lindex $cmd_ 0]
+            set name_ [cmd_^0]
             if {$name_ ni {trace tools} && $initDone_ eq 0} {
                 if {$projectInitRecipe_ ne {}} {require $projectInitRecipe_}
                 require tools$tools {*}$args ;# in case the projectInitRecipe_ didn't call the selected toolchain already.
@@ -587,7 +588,7 @@ recipe! tools {toolchain} {
     if { ! [dict exists $::recipes tools$toolchain]} {
         set t [lsort [dict keys $::recipes tools*]]
         set t [lmap r $t {string range $r 5 end}]
-        set t [lrange $t 1 end] ;# remove the empty item resulting from the 'tools' recipe; it's always first after sorting.
+        set t [t^1^end] ;# remove the empty item resulting from the 'tools' recipe; it's always first after sorting.
         error "Requested toolchain '$toolchain' was not found among the project's toolchain recipes (case sensitive): $t"
     }        
     export tools $toolchain

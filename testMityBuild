@@ -70,8 +70,8 @@ set testRecipes {
         assert {[people@kids@andrea] == 8}
         assert {[people@kids@jackie 3] == 3}
         lt = {zero one two three four}
-        assert {[lt#1] eq {one}}
-        assert {[lt#1#end-1] eq {one two three}}
+        assert {[lt^1] eq {one}}
+        assert {[lt^1^end-1] eq {one two three}}
         # variables in expressions.
         i := $a / 5
         assert {$i == 10}
@@ -81,7 +81,7 @@ set testRecipes {
         kid = aiden
         assert {[people@kids@$kid] == 9}
         i = 3
-        assert {[lt#end-$i] == {one}}
+        assert {[lt^end-$i] == {one}}
         # shorthand dict set.
         people@bob = 48
         assert {[dict get $people bob] == 48}
@@ -180,7 +180,7 @@ set testRecipes {
         }
         tracer tests recurse:[llength $myFiles]:$myFiles
         assert {[llength $myFiles] == 3}
-        assert {[lindex $myFiles 0] == [f+ $testRoot a b d libMityBuild]}
+        assert {[myFiles^0] == [f+ $testRoot a b d libMityBuild]}
     }
 
     recipe settings40 {} {} run {}
