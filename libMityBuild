@@ -178,11 +178,16 @@ proc ::unknown {args} {
             # assign to name@idx@idx@idx addressing a (possibly nested) dictionary.
             upvar [lindex $dParts 0] d
             return [dict set d {*}[lrange $dParts 1 end] $value]
-        } else {
-            # assign to plain variable.
-            upvar $cmd var
-            return [set var $value]
+        } 
+        set aParts [split $cmd (]
+        set isArray [expr {[llength $aParts] > 1}]
+        if {$isArray} {
+            # assign to array element.
+            return [uplevel 1 [list set $cmd $value]]
         }
+        # assign to plain variable.
+        upvar $cmd var
+        return [set var $value]
     }
     if {$isDict} {
         # name@idx@idx@idx means fetch from (possibly nested) dictionary.
