@@ -27,27 +27,29 @@ proc traceCalls {channel} {
 }
 
 proc traceCallsRecurse {channel callSerial indent} {
-    set detail [dict get $::callTree $callSerial]
-    set prText {}
+    detail = [::callTree@$callSerial]
+    prText = {}
     if [dict exists $detail run] {
-        set prText " *ran*"
+        prText = " *ran*"
     }
     if [dict exists $detail provide] {
-        foreach pr [dict get $detail provide] {
-            if {$pr ne [dict get $detail name]} {
+        foreach pr [detail@provide] {
+            if {$pr ne [detail@name]} {
                 append prText "\n$indent  pr:$pr"
             }
         }
     }
-    puts $channel "${indent}$callSerial:[dict get $detail name]$prText"
+    puts $channel "$indent$callSerial:[detail@name]$prText"
     if [dict exists $detail calls] {
-        foreach cs [dict get $detail calls] {
+        foreach cs [detail@calls] {
             traceCallsRecurse $channel $cs "  $indent"
         }
     }
 }
 
 proc debugExecute {cmd args} {
+    # print diagnostic output for execution debugging.
+    # DO NOT USE SHORTHAND TCL IN THIS ROUTINE!
     catch {
         set name [lindex [info level -1] 0]
         if {$name in $::debugProcs || {*} in $::debugProcs} {
@@ -86,14 +88,14 @@ proc x {args} {
 
     #TODO: find out why this throws an error in some environments (Geany, SystemD) when << redirection is used.
     
-    set errorAction [lindex $args 0]
+    errorAction = [args^0]
     if [string match -* $errorAction] {
         if {$errorAction ni [list -abort -throw -ignore]} {
             error "Unrecognized option: $errorAction"
         }
-        set args [args^1^end]
+        args = [args^1^end]
     } else {
-        set errorAction -abort
+        errorAction = -abort
     }
     tracer commands "Run in [pwd]:\n    $args" ;# output verbose format.
     showScript $args
@@ -102,18 +104,18 @@ proc x {args} {
         lappend args <@stdin >@stdout 2>@stderr
     }
     upvar childExitStatus childExitStatus
-    set childExitStatus {}
+    childExitStatus = {}
     try {
-        set output [exec -ignorestderr {*}$args ]
-        set childExitStatus 0
+        output = [exec -ignorestderr {*}$args ]
+        childExitStatus = 0
         return $output
     } trap {} {errText errDict} {
-        set sm {}
+        sm = {}
         if [dict exists $errDict -errorcode] {
-            lassign [dict get $errDict -errorcode] detectionMethod pid ces
+            lassign [errDict@-errorcode] detectionMethod pid ces
             if {$detectionMethod eq {CHILDSTATUS}} {
-                set childExitStatus $ces
-                set sm " with exit status $ces"
+                childExitStatus = $ces
+                sm = " with exit status $ces"
             } 
         }
         if {$errorAction eq {-abort}} {
@@ -130,8 +132,8 @@ proc quoteForBash {argList} {
     # pass a Tcl list.
     # return a string containing one bash shell word for each element in the given list.
     # each word is quoted as necessary for reliable use in bash shell.
-    set all {}
-    set delim {}
+    all = {}
+    delim = {}
     foreach a $argList {
         if [regexp -nocase -expanded { [^a-z0-9/._-] } $a] {
             # surround with double quotes, first removing any existing surrounding ones,
@@ -141,7 +143,7 @@ proc quoteForBash {argList} {
             # no bash-sensitive characters; use word as-is.
             append all "$delim$a"
         }
-        set delim { }
+        delim = { }
     }
     return $all
 }
@@ -157,7 +159,11 @@ proc showScript {argList} {
 
 clock format 0 ;# make sure clock packages get loaded before redefining ::unknown; their loading depends on it.
 proc ::unknown {args} {
-    puts "::unknown $args"
+    # this routine resolves commands that the Tcl interpreter doesn't recognize on its own.
+    # it uses that hook to implement several kinds of shorthand Tcl syntax.
+    # it also can often recognize when the MityBuild command 'require' was forgotten.
+    # DO NOT USE SHORTHAND TCL IN THIS ROUTINE!
+
     lassign $args cmd one two
     set dParts [split $cmd @]
     set isDict [expr {[llength $dParts] > 1}]
@@ -223,7 +229,7 @@ proc formatOptions {pattern  arg_list} {
     # wrap around the entire argument.  wrapping them around just the directory path instead
     # causes gcc to see them.  then it silently uses the wrong search path (one with quotes in it) and usually fails.
 
-    set s {}
+    s = {}
     foreach a $arg_list {
         append s [format $pattern $a] " "
     }
@@ -233,7 +239,7 @@ proc formatOptions {pattern  arg_list} {
 proc tempFilename {} {
     # each call returns a new unique file name (with absolute path) suitable to write a temporary file.
     after 1
-    set dir [findImportLocal tempFileDir tempFilename:]
+    dir = [findImportLocal tempFileDir tempFilename:]
     return [f+ $dir "MityBuild-[clock microseconds].tmp"]
 }
 
@@ -246,7 +252,7 @@ proc isNewer {objectFn sourceFns} {
         tracer newer "not found: $objectFn"
         return 0
     }
-    set objTime [file mtime $objectFn]
+    objTime = [file mtime $objectFn]
     foreach src $sourceFns {
         if {[file exists $src] && [file mtime $src] > $objTime}  {
             tracer newer "newer source: $src"
@@ -260,20 +266,20 @@ proc isNewer {objectFn sourceFns} {
 proc recurseDepthFirst {dir filePattern dirPattern script} {
     tracer recurse "recurseDepthFirst $dir $filePattern $dirPattern"
     importLocals 
-    set dirs [glob -nocomplain -types d -join -- $dir $dirPattern]
+    dirs = [glob -nocomplain -types d -join -- $dir $dirPattern]
     foreach child [lsort $dirs] {
         recurseDepthFirst $child $filePattern $dirPattern $script
     }
-    set files [glob -nocomplain -types f -join -- $dir $filePattern] 
+    files = [glob -nocomplain -types f -join -- $dir $filePattern] 
     foreach fn [lsort $files] $script
 }
 
 proc recurseBreadthFirst {dir filePattern dirPattern script} {
     tracer recurse "recurseBreadthFirst $dir $filePattern $dirPattern $dir"
     importLocals 
-    set files [glob -nocomplain -types f -join -- $dir $filePattern] 
+    files = [glob -nocomplain -types f -join -- $dir $filePattern] 
     foreach fn [lsort $files] $script
-    set dirs [glob -nocomplain -types d -join -- $dir $dirPattern] 
+    dirs = [glob -nocomplain -types d -join -- $dir $dirPattern] 
     foreach child [lsort $dirs] {
         recurseBreadthFirst $child $filePattern $dirPattern $script
     }
@@ -285,7 +291,7 @@ proc notHiddenPattern {} {
 }
 
 proc findFiles {filePatternsList dirPattern dir} {
-    set allFns [list]
+    allFns = [list]
     trapExports allFns ;# in case the caller was also using this name for a local, it should remain unaffected.
     foreach filePattern $filePatternsList {
         recurseBreadthFirst  $dir  $filePattern  $dirPattern  {
@@ -301,10 +307,10 @@ proc remainder {fn root} {
     # this function is as lenient as possible; it resolves any relative paths, 
     # symlinks, and extraneous dots and slashes.  relative paths are resolved from the current working dir.
     # it will throw an error if the file truly falls outside the given root dir.
-    set fn [file normalize [f+ [pwd] $fn]]
-    set parts [file split $fn]
-    set root [file normalize [f+ [pwd] $root]]
-    set rootParts [file split $root]
+    fn = [file normalize [f+ [pwd] $fn]]
+    parts = [file split $fn]
+    root = [file normalize [f+ [pwd] $root]]
+    rootParts = [file split $root]
     if {[parts^0^[llength $rootParts]-1] ne $rootParts} {
         error "File '$fn' falls outside of root dir '$root'."
     }
@@ -323,7 +329,7 @@ proc runMityBuild {projectInitRecipe_  projectFinalRecipe_  defaultToolchain_  a
     try {
         # show help text.
         if {[llength $::commandLineRecipes] == 0} {
-            set ::commandLineRecipes [dict keys $::recipes]
+            ::commandLineRecipes = [dict keys $::recipes]
         }
         if {[llength $::argv] == 0} {
             puts stderr "You must specify one or more of the project's recipes:\n    [lsort $::commandLineRecipes]"
@@ -332,16 +338,16 @@ proc runMityBuild {projectInitRecipe_  projectFinalRecipe_  defaultToolchain_  a
         }
         
         # init builder.
-        set ::ignoreImports [list args] ;# never import the variable 'args'; that just clutters the frame.
-        set ::built [dict create]
-        set ::callTree [dict create 0 [dict create name runMityBuild]]
-        set ::prevCallSerial 0
-        set callSerial_ 0
+        ::ignoreImports = [list args] ;# never import the variable 'args'; that just clutters the frame.
+        ::built = [dict create]
+        ::callTree = [dict create 0 [dict create name runMityBuild]]
+        ::prevCallSerial = 0
+        callSerial_ = 0
         # make sure all toolchain-related variables are exported to here, so they carry to every recipe.
         require toolsCcDefault
         # defaultToolchain_ is the default toolchain; it doesn't have to be mentioned on the command line.
         # if one is selected there, it will override the defaultToolchain_ set here.
-        set tools $defaultToolchain_
+        tools = $defaultToolchain_
 
         # take each command line parameter as a complete call to a recipe, or to an ordinary Tcl proc.
         # if the parameter contains multiple words, the 2nd and further words are taken as parameters to the call.
@@ -349,13 +355,13 @@ proc runMityBuild {projectInitRecipe_  projectFinalRecipe_  defaultToolchain_  a
         # the local variables here all end with an underscore so they won't import to the project's recipes.
         # however, any other locals that are exported to here by the recipes will be imported into subsequent recipes as usual.
         cd $::builderDir ;# cd into the script's own directory, in case it was executed from elsewhere.
-        set initDone_ 0
+        initDone_ = 0
         foreach cmd_ $::argv {
-            set name_ [cmd_^0]
+            name_ = [cmd_^0]
             if {$name_ ni {trace tools} && $initDone_ eq 0} {
                 if {$projectInitRecipe_ ne {}} {require $projectInitRecipe_}
                 require tools$tools {*}$args ;# in case the projectInitRecipe_ didn't call the selected toolchain already.
-                set initDone_ 1
+                initDone_ = 1
             }
             if [dict exists $::recipes $name_] {
                 require {*}$cmd_
@@ -370,18 +376,18 @@ proc runMityBuild {projectInitRecipe_  projectFinalRecipe_  defaultToolchain_  a
         
     } trap {} {err errDict} {
         puts stderr "MityBuild: Aborting build: [lindex [split $err \n] 0]"
-        set stackText "$err
+        stackText = "$err
 \n=== STACK ===
 Reminder: subtract 6 from all line numbers shown.
-[dict get $errDict -errorinfo]
+[errDict@-errorinfo]
 \n=== ARGUMENTS ==="
-        foreach {k v} [dict get $errDict -errorstack] {
+        foreach {k v} [$errDict@-errorstack] {
             append stackText "\n$k: $v"
         }
         tracer builderStack $stackText
-        set stackFn [f+ $::builderDir MityBuild-stack-trace.txt]
+        stackFn = [f+ $::builderDir MityBuild-stack-trace.txt]
         try {
-            set f [open $stackFn w]
+            f = [open $stackFn w]
             puts $f "$stackText\n\n=== BUILT RECIPES ==="
             traceBuilt $f
             puts $f "\n=== RECIPE CALL TREE ==="
@@ -428,10 +434,11 @@ proc recipe {name argList exportBody runWord runBody} {
         }
         provide {$name} $fetchEachArg"
 }
-set ::recipes [dict create] ;# initialize before any recipes are defined in this library; else they would be lost.
-set ::commandLineRecipes [list]
+::recipes = [dict create] ;# initialize before any recipes are defined in this library; else they would be lost.
+::commandLineRecipes = [list]
 
 proc provide {args} {
+    # DO NOT USE SHORTHAND TCL IN THIS ROUTINE!
     tracer depends "provide [string range $args 0 255]"
     upvar 1 callSerial_ callSerial_
     dict update ::callTree $callSerial_ detail {
@@ -443,6 +450,7 @@ proc provide {args} {
 proc require {name args} {
     # 'require' places a call to a recipe.  they can't be called by their name alone,
     # and they require special handling during calls.  that's implemented here.
+    # DO NOT USE SHORTHAND TCL IN THIS ROUTINE!
     tracer depends "require $name [string range $args 0 255]"
     # memorize the call for troubleshooting purposes.
     set callSerial_ [incr ::prevCallSerial]
@@ -463,17 +471,18 @@ proc require {name args} {
 
 proc check {args} {
     # returns true if the given recipe has already been called with the given arguments during this build.
-    set c [dict exists $::built $args]
+    c = [dict exists $::built $args]
     if [dict exists $::built checks] { ;# can't call 'tracer' here because it relies on 'check'.
         puts stderr "MityBuild: check=$c:[string range $args 0 255]"
     }
     return $c
 }
-set ::built [dict create]
+::built = [dict create]
 
 proc importLocals {} {
     # propagate values of all local variables (except arrays) into the current stack frame from its caller
     # (the most-recently-started recipe).  locals whose names end in an underscore are ignored.
+    # DO NOT USE SHORTHAND TCL IN THIS ROUTINE!
     set procName [lindex [info level -1] 0]
     set procParms [info args $procName]
     tracer imports "importLocals to $procName:"
@@ -503,6 +512,7 @@ proc findImportLocal {name {errorMsg {noError}}} {
     # walk up the call stack until a local variable (not array) with the given name is found, 
     # and import its value as a local in the current proc.  also return the value.
     # if it's never found, the given error message is thrown.  that's optional.
+    # DO NOT USE SHORTHAND TCL IN THIS ROUTINE!
     for {set i [expr [info level] - 2]}  {$i >= 0}  {incr i -1} {
         if { ! [uplevel #$i [list info exists $name]]} continue
         if [uplevel #$i [list array exists $name]] continue
@@ -523,6 +533,7 @@ proc exportCore {name op} {
     # or the var is in the local trapVars_ list.  apply to a minimum of 2 frames (assuming no traps):
     # the current proc (which called export, not exportCore), and its caller.
     # the script must operate on a variable named 'var'.
+    # DO NOT USE SHORTHAND TCL IN THIS ROUTINE!
     set numDone 0
     for {set i [expr [info level] - 2]}  {$i >= 0}  {incr i -1} {
         tracer exportsMore "done $numDone i $i: [info level $i]"
@@ -541,10 +552,12 @@ proc exportCore {name op} {
 }
 
 proc export {name value} {
+    # DO NOT USE SHORTHAND TCL IN THIS ROUTINE!
     exportCore $name [list set var $value]
 }
 
 proc export+ {name args} {
+    # DO NOT USE SHORTHAND TCL IN THIS ROUTINE!
     if {[llength $args] == 0} {
         exportCore $name [list lappend var] ;# important side effect is to create the list if it doesn't exist.
     } else {
@@ -586,9 +599,9 @@ recipe! tools {toolchain} {
     # recipe to provide easy 'tools' word syntax on command line.
     # also important for delaying initialization of the toolchain until the project recipes are ready for that.
     if { ! [dict exists $::recipes tools$toolchain]} {
-        set t [lsort [dict keys $::recipes tools*]]
-        set t [lmap r $t {string range $r 5 end}]
-        set t [t^1^end] ;# remove the empty item resulting from the 'tools' recipe; it's always first after sorting.
+        t = [lsort [dict keys $::recipes tools*]]
+        t = [lmap r $t {string range $r 5 end}]
+        t = [t^1^end] ;# remove the empty item resulting from the 'tools' recipe; it's always first after sorting.
         error "Requested toolchain '$toolchain' was not found among the project's toolchain recipes (case sensitive): $t"
     }        
     export tools $toolchain
@@ -612,12 +625,12 @@ recipe compileAndLink {binFn linkType sourceRootDir sourceFns} {} run {
     # linkType might be e.g. linkExecutable or linkDynamicLib or packStaticLib.
     # *.o and other intermediate files are built in a deeper subtree around binFn,
     # that mirrors the source tree under the given sourceRootDir.
-    set linkerObjFns [list]
+    linkerObjFns = [list]
     foreach source $sourceFns {
         # invoke compiler recipe once for this source file alone, accumulating a list of linkerObjFns.
-        set objBare [file rootname [file tail $source]].o
-        set childDir [remainder [file dirname $source] $sourceRootDir]
-        set objFull [f+ [file dirname $binFn] $childDir $objBare]
+        objBare = [file rootname [file tail $source]].o
+        childDir = [remainder [file dirname $source] $sourceRootDir]
+        objFull = [f+ [file dirname $binFn] $childDir $objBare]
         require compile $objFull $source
     }
     # link all linkerObjFns together into a binary.
@@ -641,19 +654,19 @@ proc exportLibrary {libName {linkType packStaticLib} {libSourceDir {}}} {
     importLocals
     if {$libSourceDir eq {}} {
         # assume directory name is same as libName
-        set libSourceDir [f+ $projectSourceDir $libName]
+        libSourceDir = [f+ $projectSourceDir $libName]
     }
-    set binDir [f+ $projectBinDir [remainder $libSourceDir $projectSourceDir] $libName]
-    set libSearchCode {}
+    binDir = [f+ $projectBinDir [remainder $libSourceDir $projectSourceDir] $libName]
+    libSearchCode = {}
     if {$linkType eq {packStaticLib}}  {
-        set binFn [f+ $binDir $libName.a]        
-        set libList staticLibFns
+        binFn = [f+ $binDir $libName.a]        
+        libList = staticLibFns
     } else {
-        set binFn [f+ $binDir $libName.so]        
-        set libList dynamicLibNames
-        set libSearchCode "export+ libSearchDirs {$binDir}"
+        binFn = [f+ $binDir $libName.so]        
+        libList = dynamicLibNames
+        libSearchCode = "export+ libSearchDirs {$binDir}"
     }
-    set code "
+    code = "
         export ${libName}SourceDir {$libSourceDir}
         export ${libName}BinDir {$binDir}
         export ${libName}BinFn {$binFn}
@@ -716,11 +729,11 @@ recipe ccCompile {objectFn sourceFn} {} run {
     # and includeDirs and defineSymbols, to compile the given sourceFn
     # (and any other source dependencies such as header files) into the given objectFn.
     export+ linkerObjFns $objectFn
-    set deps [$toolsGetSourceFileDependenciesProc $source $objectFn]
+    deps = [$toolsGetSourceFileDependenciesProc $source $objectFn]
     if [isNewer $objectFn [concat $sourceFn $deps]] return
     lappend cLanguageOptions {*}[formatOptions {"-I%s"} $includeDirs]
     lappend cLanguageOptions {*}[formatOptions {"-D%s"} $defineSymbols]
-    set objectDir [file dirname $objectFn]
+    objectDir = [file dirname $objectFn]
     file mkdir $objectDir
     file delete $objectFn ;# leave no file behind in case the tool fails.
     cd $objectDir ;# to contain any additional files the tool may write.
@@ -737,8 +750,8 @@ recipe ccPackStaticLib {binFn} {} run {
     }
     if {[isNewer $binFn $linkerObjFns]} return
     file mkdir [file dirname $binFn]        
-    set lsfn [tempFilename]
-    set lscript [open $lsfn w]
+    lsfn = [tempFilename]
+    lscript = [open $lsfn w]
     tracer linker "Packing into $binFn:"
     foreach fn $linkerObjFns {
         puts $lscript $fn
@@ -770,7 +783,7 @@ recipe ccLink {binFn} {} run {
     # add static library archive file names last of all, to satisfy symbol dependencies.
     # a library that defines a symbol must come AFTER the objects that use it.
     # that's counter-intuitive, but that's how gcc (really ld) works.    
-    set objAndStaticLibs [concat $linkerObjFns $staticLibFns]
+    objAndStaticLibs = [concat $linkerObjFns $staticLibFns]
     if {[llength $objAndStaticLibs] == 0} {
         error "Empty list of object files to link into $binFn"
     }
@@ -779,7 +792,7 @@ recipe ccLink {binFn} {} run {
     tracer linker "Linking into $binFn:"
     # build linker command line, starting with the local linkerOptions.
     # add args particular to the linker, so those are in effect for all input object files.
-    set linkerOptions [list -o $binFn  {*}$linkerOptions       \
+    linkerOptions = [list -o $binFn  {*}$linkerOptions       \
             -Wl,-Map=[f+ [file dirname $binFn] linker.map]  \
             {*}[formatOptions {"-D%s"} $defineSymbols]]
     # add library search paths, so they're in effect for all libraries that follow.
@@ -791,9 +804,9 @@ recipe ccLink {binFn} {} run {
     # @file syntax could avoid that.  but Altera's gcc 4.1.2 doesn't support @file syntax; it was invented later.
     # a temporary shell script won't help, since the shell's limit is 8192, so it's actually worse.
     # use a temporary linker script instead.
-    set lsfn [tempFilename]
+    lsfn = [tempFilename]
     lappend linkerOptions  $lsfn
-    set lscript [open $lsfn w]
+    lscript = [open $lsfn w]
     foreach fn $objAndStaticLibs {
         puts $lscript "INPUT($fn)"
         tracer linker "    $fn"
@@ -809,7 +822,7 @@ recipe ccLink {binFn} {} run {
         lappend linkerOptions -Wl,-t
     }
     # make directory for output bin file, and execute linker.
-    set toolDir [file dirname $binFn]
+    toolDir = [file dirname $binFn]
     file mkdir $toolDir
     file delete $binFn ;# leave no file behind in case the tool fails.
     cd $toolDir ;# to contain any additional files the tool may write.
@@ -826,16 +839,16 @@ proc ccGetSourceFileDependencies {sourceFn  objectFn} {
     # in C that includes all header files that the source file #include's, and all the ones #include'd by those, etc.
     # to create the .d file, specify "-MMD -MT sources" on every call to cc.
     
-    set dependencyDumpFn [file rootname $objectFn].d
+    dependencyDumpFn = [file rootname $objectFn].d
     if { ! [file readable $dependencyDumpFn]} return [list]
-    set f [open $dependencyDumpFn r]
-    set content [string trim [read $f]]
+    f = [open $dependencyDumpFn r]
+    content = [string trim [read $f]]
     close $f
     if { ! [string match -nocase  sources:*  $content]} {
         error "Unrecognized prefix found in dependency file content:\n$depFn \nPrefix must be \"sources:\"."
     }
-    set content [string trim [string range $content 8 end]]
-    set parsed [list {*}$content]
+    content = [string trim [string range $content 8 end]]
+    parsed = [list {*}$content]
     return [lmap s $parsed {string trim $s}]
 }
 
@@ -911,5 +924,5 @@ recipe toolsGccArmClangLib {} {
 
 ############### INITIALIZE LIBMITYBUILD #####################
 package require Tcl 8.6
-set ::builderDir [file normalize [f+ [pwd] [file dirname [info script]]]]
+::builderDir = [file normalize [f+ [pwd] [file dirname [info script]]]]
 
