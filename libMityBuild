@@ -6,6 +6,10 @@
 
 # ########### FILESYSTEM, OS, AND UTILITY ROUTINES ###############
 
+proc f+ {args} {
+    return [file join {*}$args]
+}
+
 proc tracer {topic message} {
     # output the given diagnostic message if the given MityBuild trace topic is enabled.
     # note: this is totally distinct from the Tcl built-in 'trace' command.
@@ -224,7 +228,7 @@ proc tempFilename {} {
     # each call returns a new unique file name (with absolute path) suitable to write a temporary file.
     after 1
     set dir [findImportLocal tempFileDir tempFilename:]
-    return [file join $dir "MityBuild-[clock microseconds].tmp"]
+    return [f+ $dir "MityBuild-[clock microseconds].tmp"]
 }
 
 proc isNewer {objectFn sourceFns} {
@@ -291,15 +295,15 @@ proc remainder {fn root} {
     # this function is as lenient as possible; it resolves any relative paths, 
     # symlinks, and extraneous dots and slashes.  relative paths are resolved from the current working dir.
     # it will throw an error if the file truly falls outside the given root dir.
-    set fn [file normalize [file join [pwd] $fn]]
+    set fn [file normalize [f+ [pwd] $fn]]
     set parts [file split $fn]
-    set root [file normalize [file join [pwd] $root]]
+    set root [file normalize [f+ [pwd] $root]]
     set rootParts [file split $root]
     if {[lrange $parts 0 [llength $rootParts]-1] ne $rootParts} {
         error "File '$fn' falls outside of root dir '$root'."
     }
     if {[llength $parts] == [llength $rootParts]} {return {}}
-    return [file join {*}[lrange $parts [llength $rootParts] end]]
+    return [f+ {*}[lrange $parts [llength $rootParts] end]]
 }
 
 # ########### RECIPE PARADIGM PLUMBING ROUTINES ###############
@@ -369,7 +373,7 @@ Reminder: subtract 6 from all line numbers shown.
             append stackText "\n$k: $v"
         }
         tracer builderStack $stackText
-        set stackFn [file join $::builderDir MityBuild-stack-trace.txt]
+        set stackFn [f+ $::builderDir MityBuild-stack-trace.txt]
         try {
             set f [open $stackFn w]
             puts $f "$stackText\n\n=== BUILT RECIPES ==="
@@ -607,7 +611,7 @@ recipe compileAndLink {binFn linkType sourceRootDir sourceFns} {} run {
         # invoke compiler recipe once for this source file alone, accumulating a list of linkerObjFns.
         set objBare [file rootname [file tail $source]].o
         set childDir [remainder [file dirname $source] $sourceRootDir]
-        set objFull [file join [file dirname $binFn] $childDir $objBare]
+        set objFull [f+ [file dirname $binFn] $childDir $objBare]
         require compile $objFull $source
     }
     # link all linkerObjFns together into a binary.
@@ -631,15 +635,15 @@ proc exportLibrary {libName {linkType packStaticLib} {libSourceDir {}}} {
     importLocals
     if {$libSourceDir eq {}} {
         # assume directory name is same as libName
-        set libSourceDir [file join $projectSourceDir $libName]
+        set libSourceDir [f+ $projectSourceDir $libName]
     }
-    set binDir [file join $projectBinDir [remainder $libSourceDir $projectSourceDir] $libName]
+    set binDir [f+ $projectBinDir [remainder $libSourceDir $projectSourceDir] $libName]
     set libSearchCode {}
     if {$linkType eq {packStaticLib}}  {
-        set binFn [file join $binDir $libName.a]        
+        set binFn [f+ $binDir $libName.a]        
         set libList staticLibFns
     } else {
-        set binFn [file join $binDir $libName.so]        
+        set binFn [f+ $binDir $libName.so]        
         set libList dynamicLibNames
         set libSearchCode "export+ libSearchDirs {$binDir}"
     }
@@ -770,7 +774,7 @@ recipe ccLink {binFn} {} run {
     # build linker command line, starting with the local linkerOptions.
     # add args particular to the linker, so those are in effect for all input object files.
     set linkerOptions [list -o $binFn  {*}$linkerOptions       \
-            -Wl,-Map=[file join [file dirname $binFn] linker.map]  \
+            -Wl,-Map=[f+ [file dirname $binFn] linker.map]  \
             {*}[formatOptions {"-D%s"} $defineSymbols]]
     # add library search paths, so they're in effect for all libraries that follow.
     lappend linkerOptions  {*}[formatOptions {"-L%s"} $libSearchDirs]    
@@ -901,5 +905,5 @@ recipe toolsGccArmClangLib {} {
 
 ############### INITIALIZE LIBMITYBUILD #####################
 package require Tcl 8.6
-set ::builderDir [file normalize [file join [pwd] [file dirname [info script]]]]
+set ::builderDir [file normalize [f+ [pwd] [file dirname [info script]]]]
 

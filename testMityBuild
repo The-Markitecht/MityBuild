@@ -38,12 +38,12 @@ set testRecipes {
         file mkdir b
         cd b
         file mkdir c
-        file copy [file join $::builderDir libMityBuild] c
+        file copy [f+ $::builderDir libMityBuild] c
         file mkdir d
-        file copy [file join $::builderDir libMityBuild] d
+        file copy [f+ $::builderDir libMityBuild] d
         cd d
         file mkdir e
-        file copy [file join $::builderDir libMityBuild] e
+        file copy [f+ $::builderDir libMityBuild] e
     }        
 
     recipe settings5 {} {} run {}
@@ -175,7 +175,7 @@ set testRecipes {
         }
         tracer tests recurse:[llength $myFiles]:$myFiles
         assert {[llength $myFiles] == 3}
-        assert {[lindex $myFiles 0] == [file join $testRoot a b d libMityBuild]}
+        assert {[lindex $myFiles 0] == [f+ $testRoot a b d libMityBuild]}
     }
 
     recipe settings40 {} {} run {}
@@ -209,9 +209,9 @@ set testRecipes {
         tracer tests "found: $all"
         assert {[llength $all] == 3}    
         assert {$all eq [list  \
-            [file join $testRoot a b c libMityBuild]  \
-            [file join $testRoot a b d libMityBuild]  \
-            [file join $testRoot a b d e libMityBuild]  \
+            [f+ $testRoot a b c libMityBuild]  \
+            [f+ $testRoot a b d libMityBuild]  \
+            [f+ $testRoot a b d e libMityBuild]  \
         ]}
         # also testing whether findFiles leaks an export of allFns.
         assert {$allFns eq {myOldFileList}}
@@ -252,7 +252,7 @@ eval $testRecipes
 for {set i 1} {$i < 1000} {incr i} {
     if [dict exists $::recipes test$i] {
         # re-initialize the builder library before each test.
-        source [file join $::builderDir libMityBuild]
+        source [f+ $::builderDir libMityBuild]
         # define a batch of recipes required for this test.
         eval $testRecipes
         # artificially set command-line parameters.
