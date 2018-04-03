@@ -72,7 +72,6 @@ set testRecipes {
         assert {[people@kids@$kid] == 9}
         i = 3
         assert {[lt#end-$i] == {one}}
-return
         # shorthand dict set.
         people@bob = 48
         assert {[dict get $people bob] == 48}
@@ -84,7 +83,7 @@ return
         name = siri
         people@$name = 30
         assert {[people@siri] == 30}
-        people@$name := people@$name + 2
+        people@$name := [people@$name] + 2
         assert {[people@siri] == 32}
         # variable dict name and indices combined.
         name = people@kids@leonard

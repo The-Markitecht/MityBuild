@@ -153,28 +153,37 @@ proc showScript {argList} {
 
 clock format 0 ;# make sure clock packages get loaded before redefining ::unknown; their loading depends on it.
 proc ::unknown {args} {
-    puts "unknown: $args"
     lassign $args cmd one two
-    puts "infix: $one"
+    set dParts [split $cmd @]
+    set isDict [expr {[llength $dParts] > 1}]
+    set doAssign 0
     if {$one eq {=}} {
         # infix = means assign by substitution, like an ordinary Tcl [set].
         if {[llength $args] > 3} {
             error "Extra words in assignment: [string range $args 0 50]"
         }
-        upvar $cmd var
-        set var [uplevel 1 [list subst $two]]
-        return $var
+        set value [uplevel 1 [list subst $two]]
+        set doAssign 1
     } elseif {$one eq {:=}} {
         # infix := means assign from an expression.
-        upvar $cmd var
-        set var [uplevel 1 [list expr [lrange $args 2 end]]]
-        return $var
+        set value [uplevel 1 [list expr [lrange $args 2 end]]]
+        set doAssign 1
     }
-    set parts [split $cmd @]
-    if {[llength $parts] > 1} {
+    if {$doAssign} {
+        if {$isDict} {
+            # assign to name@idx@idx@idx addressing a (possibly nested) dictionary.
+            upvar [lindex $dParts 0] d
+            return [dict set d {*}[lrange $dParts 1 end] $value]
+        } else {
+            # assign to plain variable.
+            upvar $cmd var
+            return [set var $value]
+        }
+    }
+    if {$isDict} {
         # name@idx@idx@idx means fetch from (possibly nested) dictionary.
-        upvar [lindex $parts 0] d
-        set indices [lrange $parts 1 end]
+        upvar [lindex $dParts 0] d
+        set indices [lrange $dParts 1 end]
         if {[llength $args] == 2 && ! [dict exists $d {*}$indices]} {
             # an argument is given also.  that's the default value if none found.
             return $one
@@ -182,8 +191,8 @@ proc ::unknown {args} {
             return [dict get $d {*}$indices]
         }
     }
-    set parts [split $cmd #]
-    lassign $parts name start end
+    set lParts [split $cmd #]
+    lassign $lParts name start end
     if {$end eq {}} {
         # name#idx means fetch from list element.
         upvar $name lt
