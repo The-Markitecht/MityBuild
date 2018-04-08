@@ -162,6 +162,8 @@ proc ::unknown {args} {
     # this routine resolves commands that the Tcl interpreter doesn't recognize on its own.
     # it uses that hook to implement several kinds of shorthand Tcl syntax.
     # it also can often recognize when the MityBuild command 'require' was forgotten.
+    # the shorthand incurs a performance penalty typically 10x to 30x, partly because the
+    # interp can't JIT compile that code.  so don't use it wherever fast code is needed.
     # DO NOT USE SHORTHAND TCL IN THIS ROUTINE!
 
     lassign $args cmd one two

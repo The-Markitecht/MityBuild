@@ -104,6 +104,31 @@ set testRecipes {
         assert {[$name] == 16}
     }
 
+    recipe settings7 {} {} run {}
+    
+    recipe test7 {} {} run {
+        # speed tests for shorthand.
+        d@a = *
+        
+        s = {}
+        begin = [clock clicks -milliseconds]
+        for {i = 0} {$i < 20000} {incr i} {
+            set s "$s[dict get $d a]"
+        }
+        baseline := [clock clicks -milliseconds] - $begin
+
+        s = {}
+        begin = [clock clicks -milliseconds]
+        for {i = 0} {$i < 20000} {incr i} {
+            s = "$s[d@a]"
+        }
+        elapse := [clock clicks -milliseconds] - $begin
+
+        tracer tests "shorthand $elapse ms"
+        factor := double($elapse) / double($baseline)
+        tracer tests "baseline $baseline ms = [format %0.1f $factor]x faster"
+    }
+
     recipe settings18 {} {} run {}
 
     recipe test18 {} {} run {
