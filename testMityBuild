@@ -64,6 +64,12 @@ set testRecipes {
         assert {$nums(five) == 5}
         nums(ten) := $nums(five) * 2
         assert {$nums(ten) == 10}
+        # shorthand assignments with subst, but ensuring no extra passes.
+        a = 5
+        a = "mark$a"
+        assert {$a eq {mark5}}
+        a = {$nonexistent}
+        assert {$a eq {$nonexistent}}        
         # shorthand indexing with literals.
         people = [dict create mark 40 julie 45 kids [dict create aiden 9 andrea 8]]
         assert {[people@mark] == 40}
@@ -73,6 +79,7 @@ set testRecipes {
         assert {[lt^1] eq {one}}
         assert {[lt^1^end-1] eq {one two three}}
         # variables in expressions.
+        a = 50
         i := $a / 5
         assert {$i == 10}
         i := $a/5

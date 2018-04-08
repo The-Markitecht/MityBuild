@@ -171,11 +171,11 @@ proc ::unknown {args} {
     set isDict [expr {[llength $dParts] > 1}]
     set doAssign 0
     if {$one eq {=}} {
-        # infix = means assign by substitution, like an ordinary Tcl [set].
+        # infix = means assign a value, like an ordinary Tcl [set].
         if {[llength $args] > 3} {
             error "Extra words in assignment: [string range $args 0 50]"
         }
-        set value [uplevel 1 [list subst $two]]
+        set value $two
         set doAssign 1
     } elseif {$one eq {:=}} {
         # infix := means assign from an expression.
