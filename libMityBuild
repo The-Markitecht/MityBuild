@@ -200,7 +200,14 @@ proc ::unknown {args} {
     }
     if {$isDict} {
         # name@idx@idx@idx means fetch from (possibly nested) dictionary.
-        upvar [lindex $dParts 0] d
+        set name [lindex $dParts 0]
+        if {[llength $name] != 1} {
+            error "Dictionary variable name contains more than one word; did you place a dollar sign in front of it when you shouldn't?"
+        }
+        upvar $name d
+        if { ! [info exists d]} {
+            error "Dictionary variable was not found: $name"
+        }
         set indices [lrange $dParts 1 end]
         if {[llength $args] == 2 && ! [dict exists $d {*}$indices]} {
             # an argument is given also.  that's the default value if none found.
@@ -211,15 +218,19 @@ proc ::unknown {args} {
     }
     set lParts [split $cmd ^]
     lassign $lParts name start end
-    if {$end eq {}} {
-        # name^idx means fetch from list element.  name must be an ordinary variable name.
-        upvar $name lt
-        return [lindex $lt $start]
-    } else {
-        # name^start^end means fetch from list range.  name must be an ordinary variable name.
-        upvar $name lt
-        return [lrange $lt $start $end]
-    }            
+    if {$start ne {}} {
+        upvar $name lst
+        if { ! [info exists lst]} {
+            error "List variable was not found: $name"
+        }
+        if {$end eq {}} {
+            # name^idx means fetch from list element.  name must be an ordinary variable name.
+            return [lindex $lst $start]
+        } else {
+            # name^start^end means fetch from list range.  name must be an ordinary variable name.
+            return [lrange $lst $start $end]
+        }            
+    }
     error "Invalid command name '$cmd'.  Did you mean 'require $cmd'?"
 }
 
@@ -383,7 +394,7 @@ proc runMityBuild {projectInitRecipe_  projectFinalRecipe_  defaultToolchain_  a
 Reminder: subtract 6 from all line numbers shown.
 [errDict@-errorinfo]
 \n=== ARGUMENTS ==="
-        foreach {k v} [$errDict@-errorstack] {
+        foreach {k v} [errDict@-errorstack] {
             append stackText "\n$k: $v"
         }
         tracer builderStack $stackText

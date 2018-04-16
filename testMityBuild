@@ -75,9 +75,9 @@ set testRecipes {
         assert {[people@mark] == 40}
         assert {[people@kids@andrea] == 8}
         assert {[people@kids@jackie 3] == 3}
-        lt = {zero one two three four}
-        assert {[lt^1] eq {one}}
-        assert {[lt^1^end-1] eq {one two three}}
+        lst = {zero one two three four}
+        assert {[lst^1] eq {one}}
+        assert {[lst^1^end-1] eq {one two three}}
         # variables in expressions.
         a = 50
         i := $a / 5
@@ -88,7 +88,7 @@ set testRecipes {
         kid = aiden
         assert {[people@kids@$kid] == 9}
         i = 3
-        assert {[lt^end-$i] == {one}}
+        assert {[lst^end-$i] == {one}}
         # shorthand dict set.
         people@bob = 48
         assert {[dict get $people bob] == 48}
@@ -109,6 +109,53 @@ set testRecipes {
         assert {[$name] == 14}
         $name := [$name] + 2
         assert {[$name] == 16}
+        # unknown command and var names.
+        try {
+            junkCommand
+            assert 0
+        } trap {} {errText errDict} {
+            assert {$errText eq {Invalid command name 'junkCommand'.  Did you mean 'require junkCommand'?}}
+        }
+        try {
+            junkDict@key
+            assert 0
+        } trap {} {errText errDict} {
+            assert {$errText eq {Dictionary variable was not found: junkDict}}
+        }
+        try {
+            junkDict@key@subkey
+            assert 0
+        } trap {} {errText errDict} {
+            assert {$errText eq {Dictionary variable was not found: junkDict}}
+        }
+        try {
+            junkList^pos
+            assert 0
+        } trap {} {errText errDict} {
+            assert {$errText eq {List variable was not found: junkList}}
+        }
+        try {
+            junkList^pos^endPos
+            assert 0
+        } trap {} {errText errDict} {
+            assert {$errText eq {List variable was not found: junkList}}
+        }
+        # unknown dict keys
+        try {
+            people@junkKey
+            assert 0
+        } trap {} {errText errDict} {
+            assert {$errText eq {key "junkKey" not known in dictionary}}
+        }
+        try {
+            people@junkKey@junkSubkey
+            assert 0
+        } trap {} {errText errDict} {
+            assert {$errText eq {key "junkKey" not known in dictionary}}
+        }
+        # invalid list positions
+        assert {[lst^9000] eq {}}
+        assert {[lst^-1] eq {}}
     }
 
     recipe settings7 {} {} run {}
