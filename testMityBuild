@@ -2,13 +2,6 @@
 
 source [file join [pwd] [file dirname [info script]] libMityBuild]
 
-proc assert {exp {msg {}}} {
-    tracer asserts "testing: $exp"
-    if {$msg eq {}} {set msg "assert failed: $exp"}
-    set result [uplevel 1 "expr {$exp}"]
-    if $result {} else {error $msg}
-}
-
 set testRecipes {
     # these recipes are wrapped in a big brace block for testing purposes.  that's not normal.
 
@@ -112,44 +105,44 @@ set testRecipes {
         # unknown command and var names.
         try {
             junkCommand
-            assert 0
+            assert 0 "This test should have trapped an error.  It executed instead."
         } trap {} {errText errDict} {
             assert {$errText eq {Invalid command name 'junkCommand'.  Did you mean 'require junkCommand'?}}
         }
         try {
             junkDict@key
-            assert 0
+            assert 0 "This test should have trapped an error.  It executed instead."
         } trap {} {errText errDict} {
             assert {$errText eq {Dictionary variable was not found: junkDict}}
         }
         try {
             junkDict@key@subkey
-            assert 0
+            assert 0 "This test should have trapped an error.  It executed instead."
         } trap {} {errText errDict} {
             assert {$errText eq {Dictionary variable was not found: junkDict}}
         }
         try {
             junkList^pos
-            assert 0
+            assert 0 "This test should have trapped an error.  It executed instead."
         } trap {} {errText errDict} {
             assert {$errText eq {List variable was not found: junkList}}
         }
         try {
             junkList^pos^endPos
-            assert 0
+            assert 0 "This test should have trapped an error.  It executed instead."
         } trap {} {errText errDict} {
             assert {$errText eq {List variable was not found: junkList}}
         }
         # unknown dict keys
         try {
             people@junkKey
-            assert 0
+            assert 0 "This test should have trapped an error.  It executed instead."
         } trap {} {errText errDict} {
             assert {$errText eq {key "junkKey" not known in dictionary}}
         }
         try {
             people@junkKey@junkSubkey
-            assert 0
+            assert 0 "This test should have trapped an error.  It executed instead."
         } trap {} {errText errDict} {
             assert {$errText eq {key "junkKey" not known in dictionary}}
         }

@@ -6,6 +6,13 @@
 
 # ########### FILESYSTEM, OS, AND UTILITY ROUTINES ###############
 
+proc assert {exp {msg {}}} {
+    tracer asserts "testing: $exp"
+    if {$msg eq {}} {set msg "assert failed: $exp"}
+    set result [uplevel 1 "expr {$exp}"]
+    if $result {} else {error $msg}
+}
+
 proc f+ {args} {
     return [file join {*}$args]
 }
@@ -337,7 +344,7 @@ proc runMityBuild {projectInitRecipe_  projectFinalRecipe_  defaultToolchain_  a
     # this is the builder's main routine, suitable for parsing the command line and driving the build as a whole.
     # when calling, pass the name of the recipe to aways call first, to set up project settings etc.
     # also pass the recipe to always call last, for any odd work to wrap up the build.
-    # also pass the recipe (and any arguments it requires) for the default toolchain for the build.
+    # also pass the recipe (followed by any arguments it requires) for the default toolchain for the build.
 
     try {
         # show help text.
@@ -351,11 +358,17 @@ proc runMityBuild {projectInitRecipe_  projectFinalRecipe_  defaultToolchain_  a
         }
         
         # init builder.
-        ::ignoreImports = [list args] ;# never import the variable 'args'; that just clutters the frame.
-        ::built = [dict create]
-        ::callTree = [dict create 0 [dict create name runMityBuild]]
-        ::prevCallSerial = 0
-        callSerial_ = 0
+        # now this is done at the bottom of this file instead, to better support calling
+        # library functions such as 'require trace' prior to runMityBuild.
+        
+        # memorize the call to runMityBuild, for troubleshooting purposes.
+        set callSerial_ [incr ::prevCallSerial]
+        dict set ::callTree $callSerial_ name runMityBuild
+        upvar 1 callSerial_ parentCallSerial
+        dict update ::callTree $parentCallSerial detail {
+            dict lappend detail calls $callSerial_
+        }
+        
         # make sure all toolchain-related variables are exported to here, so they carry to every recipe.
         require toolsCcDefault
         # defaultToolchain_ is the default toolchain; it doesn't have to be mentioned on the command line.
@@ -885,12 +898,21 @@ recipe toolsClangGnuLib {} {
     # for clang with GNU libstdc++ instead of LLVM's libc++, which also affects examination of data structures in gdb.
     require toolsClang
     export cLanguageOptions [list {*}$commonOptions -c -xc++ -std=c++14 -stdlib=libstdc++ {*}$sourceDependencyOptions]
+    export linkerOptions [list {*}$commonOptions -std=c++14 -stdlib=libstdc++ -pthread]
 } run {}
 
 recipe toolsClang11 {} {
     # for clang with their libc++, with C++11 standard.
     require toolsClang
     export cLanguageOptions [list {*}$commonOptions -c -xc++ -std=c++11 -stdlib=libc++ {*}$sourceDependencyOptions]
+    export linkerOptions [list {*}$commonOptions -std=c++11 -stdlib=libc++ -pthread]
+} run {}
+
+recipe toolsClangC11 {} {
+    # for clang with its default standard library, with C11 (not C++11) standard.
+    require toolsClang
+    export cLanguageOptions [list {*}$commonOptions -c -xc -std=c11 {*}$sourceDependencyOptions]
+    export linkerOptions [list {*}$commonOptions -std=c11 -pthread]
 } run {}
 
 recipe toolsGcc {} {
@@ -938,4 +960,9 @@ recipe toolsGccArmClangLib {} {
 ############### INITIALIZE LIBMITYBUILD #####################
 package require Tcl 8.6
 ::builderDir = [file normalize [f+ [pwd] [file dirname [info script]]]]
+::ignoreImports = [list args] ;# never import the variable 'args'; that just clutters the frame.
+::built = [dict create]
+::callTree = [dict create 0 [dict create name builderScriptFile]]
+::prevCallSerial = 0
+callSerial_ = 0
 
