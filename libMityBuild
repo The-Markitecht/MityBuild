@@ -173,6 +173,7 @@ proc ::unknown {args} {
     # interp can't JIT compile that code.  so don't use it wherever fast code is needed.
     # DO NOT USE SHORTHAND TCL IN THIS ROUTINE!
 
+#puts $args
     lassign $args cmd one two
     set dParts [split $cmd @]
     set isDict [expr {[llength $dParts] > 1}]
@@ -187,6 +188,7 @@ proc ::unknown {args} {
     } elseif {$one eq {:=}} {
         # infix := means assign from an expression.
         set value [uplevel 1 [list expr [lrange $args 2 end]]]
+#puts "expr: ~[lrange $args 2 end]~ = $value"
         set doAssign 1
     }
     if {$doAssign} {
@@ -374,7 +376,8 @@ proc runMityBuild {projectInitRecipe_  projectFinalRecipe_  defaultToolchain_  a
         # defaultToolchain_ is the default toolchain; it doesn't have to be mentioned on the command line.
         # if one is selected there, it will override the defaultToolchain_ set here.
         tools = $defaultToolchain_
-
+        assert {$tools ne {}}
+        
         # take each command line parameter as a complete call to a recipe, or to an ordinary Tcl proc.
         # if the parameter contains multiple words, the 2nd and further words are taken as parameters to the call.
         # as a special case, 'trace' or 'tools' recipes are allowed to execute even before project init recipes.
@@ -688,7 +691,7 @@ proc exportLibrary {libName {linkType packStaticLib} {libSourceDir {}}} {
         binFn = [f+ $binDir $libName.a]        
         libList = staticLibFns
     } else {
-        binFn = [f+ $binDir $libName.so]        
+        binFn = [f+ $binDir lib$libName.so]        
         libList = dynamicLibNames
         libSearchCode = "export+ libSearchDirs {$binDir}"
     }
@@ -944,6 +947,13 @@ recipe toolsGccArm {} {
     export ld $cc  ;# use same tool again for linking.
     export ar arm-linux-gnueabihf-ar
     export readelf arm-linux-gnueabihf-readelf
+} run {}
+
+recipe toolsGccArmC11 {} {
+    # gcc ARM cross-compile toolchain, with C11 (not C++11) standard.
+    require toolsGccArm
+    export cLanguageOptions [list {*}$commonOptions -c -xc -std=c11 {*}$sourceDependencyOptions]
+    export linkerOptions [list {*}$commonOptions -std=c11 -pthread]
 } run {}
 
 recipe toolsGccArmClangLib {} {
