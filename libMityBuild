@@ -719,6 +719,10 @@ recipe toolsCcDefault {} {
     if { ! [info exists optim]} {export optim 0} 
     export commonOptions [list] ;# used for all compiler and linker calls.
     export sourceDependencyOptions [list] ;# causes dumping source file dependency list into .d file.
+    export sourceLanguagePatterns [dict create \
+        *.c*  cLanguageOptions  \
+        *.s  asmLanguageOptions  \
+        *.asm  asmLanguageOptions ]
     export cLanguageOptions [list {*}$commonOptions -c {*}$sourceDependencyOptions] ;# options to compile only, without linking.
     export asmLanguageOptions [list {*}$commonOptions -c -xassembler-with-cpp {*}$sourceDependencyOptions] ;# options to assemble only, without linking.
     export linkerOptions [list {*}$commonOptions] ;# options to pass to linker.
@@ -748,7 +752,7 @@ recipe toolsCcDefault {} {
         cc  ld  ar  readelf 
         toolsCompilerRecipe  toolsLinkerRecipe  toolsDynamicLinkerRecipe 
         toolsPackStaticLibRecipe  toolsGetSourceFileDependenciesProc }
-    export toolOptionsVars {commonOptions sourceDependencyOptions 
+    export toolOptionsVars {commonOptions sourceDependencyOptions sourceLanguagePatterns
         cLanguageOptions asmLanguageOptions linkerOptions libOptions defineSymbols}
     export toolLibVars {includeDirs staticLibFns dynamicLibNames libSearchDirs}
 } run {}
@@ -757,16 +761,25 @@ recipe ccCompile {objectFn sourceFn} {} run {
     # run a cc-style compiler tool, passing it the local cLanguageOptions
     # and includeDirs and defineSymbols, to compile the given sourceFn
     # (and any other source dependencies such as header files) into the given objectFn.
+    # asmLanguageOptions or other language options may be selected instead of cLanguageOptions, 
+    # by comparing the filename to the patterns in sourceLanguagePatterns dictionary.
     export+ linkerObjFns $objectFn
     deps = [$toolsGetSourceFileDependenciesProc $source $objectFn]
     if [isNewer $objectFn [concat $sourceFn $deps]] return
-    lappend cLanguageOptions {*}[formatOptions {"-I%s"} $includeDirs]
-    lappend cLanguageOptions {*}[formatOptions {"-D%s"} $defineSymbols]
+    languageOptions = $cLanguageOptions
+    tail = [file tail $sourceFn]
+    dict for {k v} $sourceLanguagePatterns {
+        if [string match -nocase $k $tail] {
+            languageOptions = [set $v] ;# fetch the languageOptions variable named in the dictionary.
+        }
+    }
+    lappend languageOptions {*}[formatOptions {"-I%s"} $includeDirs]
+    lappend languageOptions {*}[formatOptions {"-D%s"} $defineSymbols]
     objectDir = [file dirname $objectFn]
     file mkdir $objectDir
     file delete $objectFn ;# leave no file behind in case the tool fails.
     cd $objectDir ;# to contain any additional files the tool may write.
-    x $cc  -o $objectFn  {*}$cLanguageOptions  $sourceFn
+    x $cc  -o $objectFn  {*}$languageOptions  $sourceFn
     provide compile done $objectFn ;# recipes can check for this to see if a tool was really executed here, not skipped.
 }
 
