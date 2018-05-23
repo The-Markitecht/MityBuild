@@ -320,6 +320,32 @@ set testRecipes {
     recipe compileForeign {} {} run {
         assert {$cc eq {special-gcc}}
     }
+    
+    recipe settings70 {} {} run {}
+
+    recipe test70 {} {} run {
+        # test requireExports
+        assert { ! [info exists lib70path]}
+        assert { ! [info exists lib70ran]}
+        local70 = localJunk
+        requireExports lib70 one two
+        assert {[info exists lib70path]}
+        assert { ! [info exists lib70ran]}
+        catch {unset lib70path}
+        require lib70 one two
+        assert {[info exists lib70path]}
+        assert {[info exists lib70ran]}
+    }
+    
+    recipe lib70 {p1 p2} {
+        assert {$p1 eq {one}}
+        assert {$p2 eq {two}}
+        assert {$local70 eq {localJunk}}
+        export lib70path junk
+    } run {
+        export lib70ran junk
+    }
+    
 }
 
 puts stderr ===============================================

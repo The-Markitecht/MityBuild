@@ -451,17 +451,22 @@ proc recipe {name argList exportBody runWord runBody} {
     }
     dict set ::recipes $name $argList
     # define a proc with a body combined and enhanced from the 2 given bodies of the recipe.
-    # skip the runBody (the second body) if that's already executed during this build.
+    # skip the runBody (the second body) if that's already executed during this build,
+    # or if the caller requested to skip it by enableRunBody == 0.
     set fetchEachArg [formatOptions {$%s} $argList]
-    proc recipe_$name $argList "
+    finalArgList = [list enableRunBody {*}$argList]
+    proc recipe_$name $finalArgList "
         upvar 1 callSerial_ callSerial_
         importLocals
         $exportBody
-        if { ! \[check $name $fetchEachArg\]} {
-            dict set ::callTree \$callSerial_ run 1
-            $runBody
+        if { \$enableRunBody } {
+            if { ! \[check $name $fetchEachArg\]} {
+                dict set ::callTree \$callSerial_ run 1
+                $runBody
+            }
+            provide {$name} $fetchEachArg
         }
-        provide {$name} $fetchEachArg"
+    "
 }
 ::recipes = [dict create] ;# initialize before any recipes are defined in this library; else they would be lost.
 ::commandLineRecipes = [list]
@@ -476,9 +481,7 @@ proc provide {args} {
     dict incr ::built $args
 }
 
-proc require {name args} {
-    # 'require' places a call to a recipe.  they can't be called by their name alone,
-    # and they require special handling during calls.  that's implemented here.
+proc requireCore {name enableRunBody args} {
     # DO NOT USE SHORTHAND TCL IN THIS ROUTINE!
     tracer depends "require $name [string range $args 0 255]"
     # memorize the call for troubleshooting purposes.
@@ -491,11 +494,25 @@ proc require {name args} {
     tracer calls "call $callSerial_ to $name from [dict get $::callTree $parentCallSerial name]"
     set pwd_ [pwd]
     set deferExports_ [list]
-    recipe_$name {*}$args
+    recipe_$name $enableRunBody {*}$args
     foreach cmd $deferExports_ {
         {*}$cmd
     }
     cd $pwd_ ;# restore the previous working directory after each 'require'.
+}
+
+proc require {name args} {
+    # 'require' places a call to a recipe.  they can't be called by their name alone,
+    # and they require special handling during calls.  that's implemented here.
+    uplevel 1 requireCore $name 1 {*}$args
+}
+
+proc requireExports {name args} {
+    # 'requireExports' is identical to 'require' except only the recipe's exportBody is
+    # used.  its runBody is ignored during this call.  this is useful e.g. when 
+    # a recipe for a library exports all of its paths, and another recipe needs to re-use
+    # those paths in order to clean that library.
+    uplevel 1 requireCore $name 0 {*}$args
 }
 
 proc check {args} {
@@ -568,7 +585,7 @@ proc exportCore {name op} {
         tracer exportsMore "done $numDone i $i: [info level $i]"
         set procName [lindex [info level $i] 0]
         set level #$i
-        if {$procName eq {require}} continue ;# ignore 'require' frames that always interpose between recipe frames.
+        if {$procName in {requireCore require requireExports}} continue ;# ignore 'require' frames that always interpose between recipe frames.
         if {$numDone >= 2 && ! [uplevel $level [list info exists $name]]} break
         if [uplevel $level [list array exists $name]] break
         upvar $level $name var
@@ -688,7 +705,7 @@ proc exportLibrary {libName {linkType packStaticLib} {libSourceDir {}}} {
     binDir = [f+ $projectBinDir [remainder $libSourceDir $projectSourceDir] $libName]
     libSearchCode = {}
     if {$linkType eq {packStaticLib}}  {
-        binFn = [f+ $binDir $libName.a]        
+        binFn = [f+ $binDir lib$libName.a]        
         libList = staticLibFns
     } else {
         binFn = [f+ $binDir lib$libName.so]        
