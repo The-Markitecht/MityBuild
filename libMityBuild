@@ -481,9 +481,9 @@ proc provide {args} {
     dict incr ::built $args
 }
 
-proc requireCore {name enableRunBody args} {
+proc requireCore {name enableRunBody argsList} {
     # DO NOT USE SHORTHAND TCL IN THIS ROUTINE!
-    tracer depends "require $name [string range $args 0 255]"
+    tracer depends "require $name [string range $argsList 0 255]"
     # memorize the call for troubleshooting purposes.
     set callSerial_ [incr ::prevCallSerial]
     dict set ::callTree $callSerial_ name $name
@@ -494,7 +494,7 @@ proc requireCore {name enableRunBody args} {
     tracer calls "call $callSerial_ to $name from [dict get $::callTree $parentCallSerial name]"
     set pwd_ [pwd]
     set deferExports_ [list]
-    recipe_$name $enableRunBody {*}$args
+    recipe_$name $enableRunBody {*}$argsList
     foreach cmd $deferExports_ {
         {*}$cmd
     }
@@ -504,7 +504,7 @@ proc requireCore {name enableRunBody args} {
 proc require {name args} {
     # 'require' places a call to a recipe.  they can't be called by their name alone,
     # and they require special handling during calls.  that's implemented here.
-    uplevel 1 requireCore $name 1 {*}$args
+    uplevel 1 [list requireCore $name 1 $args]
 }
 
 proc requireExports {name args} {
@@ -512,7 +512,7 @@ proc requireExports {name args} {
     # used.  its runBody is ignored during this call.  this is useful e.g. when 
     # a recipe for a library exports all of its paths, and another recipe needs to re-use
     # those paths in order to clean that library.
-    uplevel 1 requireCore $name 0 {*}$args
+    uplevel 1 [list requireCore $name 0 $args]
 }
 
 proc check {args} {

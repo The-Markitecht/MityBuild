@@ -328,19 +328,21 @@ set testRecipes {
         assert { ! [info exists lib70path]}
         assert { ! [info exists lib70ran]}
         local70 = localJunk
-        requireExports lib70 one two
+        lst = [list five eight seven]
+        requireExports lib70 one two $lst
         assert {[info exists lib70path]}
         assert { ! [info exists lib70ran]}
         catch {unset lib70path}
-        require lib70 one two
+        require lib70 one two $lst
         assert {[info exists lib70path]}
         assert {[info exists lib70ran]}
     }
     
-    recipe lib70 {p1 p2} {
+    recipe lib70 {p1 p2 pList} {
         assert {$p1 eq {one}}
         assert {$p2 eq {two}}
         assert {$local70 eq {localJunk}}
+        assert {$pList eq [list five eight seven]}
         export lib70path junk
     } run {
         export lib70ran junk
