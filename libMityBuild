@@ -168,79 +168,127 @@ clock format 0 ;# make sure clock packages get loaded before redefining ::unknow
 proc ::unknown {args} {
     # this routine resolves commands that the Tcl interpreter doesn't recognize on its own.
     # it uses that hook to implement several kinds of shorthand Tcl syntax.
+    # see all the comments below for the various shorthand syntax's supported.
     # it also can often recognize when the MityBuild command 'require' was forgotten.
     # the shorthand incurs a performance penalty typically 10x to 30x, partly because the
     # interp can't JIT compile that code.  so don't use it wherever fast code is needed.
     # DO NOT USE SHORTHAND TCL IN THIS ROUTINE!
 
-#puts $args
-    lassign $args cmd one two
-    set dParts [split $cmd @]
-    set isDict [expr {[llength $dParts] > 1}]
-    set doAssign 0
-    if {$one eq {=}} {
+    #puts $args
+    
+    # bite the command off the front of the args list.
+    #set remain [lassign $args cmd]
+    # bite 2 args off the front of the arg list.  repeat as long as that
+    # constitutes another indexing operation for a dictionary or list.
+    set assignOp {}
+    set sliceType {}
+    set indices {}
+    set numArgs [llength $args]
+    set maxArg [expr {$numArgs - 1}]
+    for {set consumed 1} {$consumed < $maxArg} {} 
+        set op [lindex $args $consumed]
+        set idx [lindex $args ${consumed}+1]
+    #    set remain [lassign $a op idx]
+        if {$op in {= :=}} {
+            set assignOp $op
+            incr consumed
+            break
+        } elseif {$op in {@ ^}} {
+            if {($sliceType ne {}) && ($sliceType ne $op)} {
+                error "More than one kind of indexing operator was used: [string range $args 0 50]"
+            }
+            set sliceType $op
+            lappend indices $idx
+            incr consumed 2
+        } else {
+            break
+        }
+    }
+    
+    # evaluate & memorize the right-hand side of an assignment.
+    if {$assignOp eq {=}} {
         # infix = means assign a value, like an ordinary Tcl [set].
-        if {[llength $args] > 3} {
+        if {$numArgs <= $consumed} {
+            error "Did not specify a value to assign: [string range $args 0 50]"
+        }
+        if {$numArgs > ($consumed + 1)} {
             error "Extra words in assignment: [string range $args 0 50]"
         }
-        set value $two
-        set doAssign 1
-    } elseif {$one eq {:=}} {
+        set value [lindex $args $consumed]
+    } elseif {$assignOp eq {:=}} {
         # infix := means assign from an expression.
-        set value [uplevel 1 [list expr [lrange $args 2 end]]]
-#puts "expr: ~[lrange $args 2 end]~ = $value"
-        set doAssign 1
+        if {$numArgs <= $consumed} {
+            error "Did not specify an expression to assign: [string range $args 0 50]"
+        }
+        set value [uplevel 1 [list expr [lrange $args $consumed end]]]
+        #puts "expr: ~[lrange $args $consumed end]~ = $value"
     }
-    if {$doAssign} {
-        if {$isDict} {
-            # assign to name@idx@idx@idx addressing a (possibly nested) dictionary.
-            upvar [lindex $dParts 0] d
-            return [dict set d {*}[lrange $dParts 1 end] $value]
+    
+    # check for accidental dollar sign.
+    lassign $args name
+    if {[llength $name] != 1} {
+        error "Variable name contains more than one word; did you place a dollar sign in front of it when you shouldn't?"
+    }
+
+    # do all kinds of assignments.
+    if {$assignOp ne {}} {
+        if {$sliceType eq {^}} {
+            error "Assignment to list range is not supported: [string range $args 0 50]"
+        }
+        if {$sliceType eq {@}} {
+            # assign to name @ idx @ idx @ idx addressing a (possibly nested) dictionary.
+            upvar $name d
+            return [dict set d {*}$indices $value]
         } 
-        set aParts [split $cmd (]
-        set isArray [expr {[llength $aParts] > 1}]
-        if {$isArray} {
+        if {[string first ( $name] != -1} {
             # assign to array element.
-            return [uplevel 1 [list set $cmd $value]]
+            return [uplevel 1 [list set $name $value]]
         }
         # assign to plain variable.
-        upvar $cmd var
+        upvar $name var
         return [set var $value]
     }
-    if {$isDict} {
-        # name@idx@idx@idx means fetch from (possibly nested) dictionary.
-        set name [lindex $dParts 0]
-        if {[llength $name] != 1} {
-            error "Dictionary variable name contains more than one word; did you place a dollar sign in front of it when you shouldn't?"
-        }
+    
+    # do dictionary fetch.
+    if {$sliceType eq {@}} {
+        # name @ idx @ idx @ idx means fetch from (possibly nested) dictionary.
         upvar $name d
         if { ! [info exists d]} {
             error "Dictionary variable was not found: $name"
         }
-        set indices [lrange $dParts 1 end]
-        if {[llength $args] == 2 && ! [dict exists $d {*}$indices]} {
+        if {$numArgs > ($consumed + 1)} {
+            error "Extra words in dictionary fetch: [string range $args 0 50]"
+        }
+        if {($numArgs > $consumed) && ! [dict exists $d {*}$indices]} {
             # an argument is given also.  that's the default value if none found.
-            return $one
+            return [lindex $args $consumed]
         } else {
             return [dict get $d {*}$indices]
         }
     }
-    set lParts [split $cmd ^]
-    lassign $lParts name start end
-    if {$start ne {}} {
-        upvar $name lst
+    
+    # do list fetch.
+    if {$sliceType eq {^}} {
         if { ! [info exists lst]} {
             error "List variable was not found: $name"
         }
+        if {$numArgs > $consumed} {
+            error "Extra words in list fetch: [string range $args 0 50]"
+        }
+        lassign $indices start end more
+        if {$more ne {}} {
+            error "Too many indices in list fetch: [string range $args 0 50]"
+        }
         if {$end eq {}} {
-            # name^idx means fetch from list element.  name must be an ordinary variable name.
+            # name ^ idx means fetch from list element.  name must be an ordinary variable name.
             return [lindex $lst $start]
         } else {
-            # name^start^end means fetch from list range.  name must be an ordinary variable name.
+            # name ^ start ^ end means fetch from list range.  name must be an ordinary variable name.
             return [lrange $lst $start $end]
         }            
     }
-    error "Invalid command name '$cmd'.  Did you mean 'require $cmd'?"
+    
+    error "Invalid command name '$cmd'.  Did you mean to call a MityBuild recipe with 'require $cmd'?"
 }
 
 proc formatOptions {pattern  arg_list} {

@@ -65,12 +65,12 @@ set testRecipes {
         assert {$a eq {$nonexistent}}        
         # shorthand indexing with literals.
         people = [dict create mark 40 julie 45 kids [dict create aiden 9 andrea 8]]
-        assert {[people@mark] == 40}
-        assert {[people@kids@andrea] == 8}
-        assert {[people@kids@jackie 3] == 3}
+        assert {[people @ mark] == 40}
+        assert {[people @ kids @ andrea] == 8}
+        assert {[people @ kids @ jackie 3] == 3}
         lst = {zero one two three four}
-        assert {[lst^1] eq {one}}
-        assert {[lst^1^end-1] eq {one two three}}
+        assert {[lst ^ 1] eq {one}}
+        assert {[lst ^ 1 ^ end-1] eq {one two three}}
         # variables in expressions.
         a = 50
         i := $a / 5
@@ -79,29 +79,22 @@ set testRecipes {
         assert {$i == 10}
         # variables in indices.
         kid = aiden
-        assert {[people@kids@$kid] == 9}
+        assert {[people @ kids @ $kid] == 9}
         i = 3
-        assert {[lst^end-$i] == {one}}
+        assert {[lst ^ end-$i] == {one}}
         # shorthand dict set.
-        people@bob = 48
+        people @ bob = 48
         assert {[dict get $people bob] == 48}
-        people@kids@sheldon = 10
+        people @ kids @ sheldon = 10
         assert {[dict get $people kids sheldon] == 10}
-        people@kids@leonard := [people@kids@sheldon] + 2
+        people @ kids @ leonard := [people @ kids @ sheldon] + 2
         assert {[dict get $people kids leonard] == 12}
         # ... with variable indices.
         name = siri
-        people@$name = 30
-        assert {[people@siri] == 30}
-        people@$name := [people@$name] + 2
-        assert {[people@siri] == 32}
-        # variable dict name and indices combined.
-        name = people@kids@leonard
-        assert {[$name] == 12}
-        $name = 14
-        assert {[$name] == 14}
-        $name := [$name] + 2
-        assert {[$name] == 16}
+        people @ $name = 30
+        assert {[people @ siri] == 30}
+        people @ $name := [people@$name] + 2
+        assert {[people @ siri] == 32}
         # unknown command and var names.
         try {
             junkCommand
@@ -110,38 +103,38 @@ set testRecipes {
             assert {$errText eq {Invalid command name 'junkCommand'.  Did you mean 'require junkCommand'?}}
         }
         try {
-            junkDict@key
+            junkDict @ key
             assert 0 "This test should have trapped an error.  It executed instead."
         } trap {} {errText errDict} {
             assert {$errText eq {Dictionary variable was not found: junkDict}}
         }
         try {
-            junkDict@key@subkey
+            junkDict @ key @ subkey
             assert 0 "This test should have trapped an error.  It executed instead."
         } trap {} {errText errDict} {
             assert {$errText eq {Dictionary variable was not found: junkDict}}
         }
         try {
-            junkList^pos
+            junkList ^ pos
             assert 0 "This test should have trapped an error.  It executed instead."
         } trap {} {errText errDict} {
             assert {$errText eq {List variable was not found: junkList}}
         }
         try {
-            junkList^pos^endPos
+            junkList ^ pos ^ endPos
             assert 0 "This test should have trapped an error.  It executed instead."
         } trap {} {errText errDict} {
             assert {$errText eq {List variable was not found: junkList}}
         }
         # unknown dict keys
         try {
-            people@junkKey
+            people @ junkKey
             assert 0 "This test should have trapped an error.  It executed instead."
         } trap {} {errText errDict} {
             assert {$errText eq {key "junkKey" not known in dictionary}}
         }
         try {
-            people@junkKey@junkSubkey
+            people @ junkKey @ junkSubkey
             assert 0 "This test should have trapped an error.  It executed instead."
         } trap {} {errText errDict} {
             assert {$errText eq {key "junkKey" not known in dictionary}}
@@ -155,7 +148,7 @@ set testRecipes {
     
     recipe test7 {} {} run {
         # speed tests for shorthand.
-        d@a = *
+        d @ a = *
         
         s = {}
         begin = [clock clicks -milliseconds]
@@ -167,7 +160,7 @@ set testRecipes {
         s = {}
         begin = [clock clicks -milliseconds]
         for {i = 0} {$i < 20000} {incr i} {
-            s = "$s[d@a]"
+            s = "$s[d @ a]"
         }
         elapse := [clock clicks -milliseconds] - $begin
 
