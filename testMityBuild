@@ -93,14 +93,14 @@ set testRecipes {
         name = siri
         people @ $name = 30
         assert {[people @ siri] == 30}
-        people @ $name := [people@$name] + 2
+        people @ $name := [people @ $name] + 2
         assert {[people @ siri] == 32}
         # unknown command and var names.
         try {
             junkCommand
             assert 0 "This test should have trapped an error.  It executed instead."
         } trap {} {errText errDict} {
-            assert {$errText eq {Invalid command name 'junkCommand'.  Did you mean 'require junkCommand'?}}
+            assert {$errText eq {Invalid command name 'junkCommand'.  Did you mean to call a MityBuild recipe with 'require junkCommand'?}}
         }
         try {
             junkDict @ key
@@ -140,8 +140,8 @@ set testRecipes {
             assert {$errText eq {key "junkKey" not known in dictionary}}
         }
         # invalid list positions
-        assert {[lst^9000] eq {}}
-        assert {[lst^-1] eq {}}
+        assert {[lst ^ 9000] eq {}}
+        assert {[lst ^ -1] eq {}}
     }
 
     recipe settings7 {} {} run {}
@@ -245,7 +245,7 @@ set testRecipes {
         }
         tracer tests recurse:[llength $myFiles]:$myFiles
         assert {[llength $myFiles] == 3}
-        assert {[myFiles^0] == [f+ $testRoot a b d libMityBuild]}
+        assert {[myFiles ^ 0] == [f+ $testRoot a b d libMityBuild]}
     }
 
     recipe settings40 {} {} run {}
@@ -354,12 +354,15 @@ for {set i 1} {$i < 1000} {incr i} {
         # define a batch of recipes required for this test.
         eval $testRecipes
         # artificially set command-line parameters.
-        set ::argv [list {trace tests asserts builderStack commands} test$i]
+        set ::argv [list \
+            {trace tests asserts builderStack commands} \
+            [list tracer tests "running test$i"] \
+            test$i \
+            [list tracer tests "passed test$i"]
+        ]
         # execute the build, and trace the progress.
-        tracer tests "running test$i"
         if [info exists debugNames] {startDebug $debugNames}
         runMityBuild settings$i final CcDefault
-        tracer tests "passed test$i"
     }
 }
 

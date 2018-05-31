@@ -34,21 +34,21 @@ proc traceCalls {channel} {
 }
 
 proc traceCallsRecurse {channel callSerial indent} {
-    detail = [::callTree@$callSerial]
+    detail = [::callTree @ $callSerial]
     prText = {}
     if [dict exists $detail run] {
         prText = " *ran*"
     }
     if [dict exists $detail provide] {
-        foreach pr [detail@provide] {
-            if {$pr ne [detail@name]} {
+        foreach pr [detail @ provide] {
+            if {$pr ne [detail @ name]} {
                 append prText "\n$indent  pr:$pr"
             }
         }
     }
-    puts $channel "$indent$callSerial:[detail@name]$prText"
+    puts $channel "$indent$callSerial:[detail @ name]$prText"
     if [dict exists $detail calls] {
-        foreach cs [detail@calls] {
+        foreach cs [detail @ calls] {
             traceCallsRecurse $channel $cs "  $indent"
         }
     }
@@ -95,12 +95,12 @@ proc x {args} {
 
     #TODO: find out why this throws an error in some environments (Geany, SystemD) when << redirection is used.
     
-    errorAction = [args^0]
+    errorAction = [args ^ 0]
     if [string match -* $errorAction] {
         if {$errorAction ni [list -abort -throw -ignore]} {
             error "Unrecognized option: $errorAction"
         }
-        args = [args^1^end]
+        args = [args ^ 1 ^ end]
     } else {
         errorAction = -abort
     }
@@ -119,7 +119,7 @@ proc x {args} {
     } trap {} {errText errDict} {
         sm = {}
         if [dict exists $errDict -errorcode] {
-            lassign [errDict@-errorcode] detectionMethod pid ces
+            lassign [errDict @ -errorcode] detectionMethod pid ces
             if {$detectionMethod eq {CHILDSTATUS}} {
                 childExitStatus = $ces
                 sm = " with exit status $ces"
@@ -170,7 +170,7 @@ proc ::unknown {args} {
     # it uses that hook to implement several kinds of shorthand Tcl syntax.
     # see all the comments below for the various shorthand syntax's supported.
     # it also can often recognize when the MityBuild command 'require' was forgotten.
-    # the shorthand incurs a performance penalty typically 10x to 30x, partly because the
+    # the shorthand incurs a performance penalty typically 5x to 10x, partly because the
     # interp can't JIT compile that code.  so don't use it wherever fast code is needed.
     # DO NOT USE SHORTHAND TCL IN THIS ROUTINE!
 
@@ -185,7 +185,7 @@ proc ::unknown {args} {
     set indices {}
     set numArgs [llength $args]
     set maxArg [expr {$numArgs - 1}]
-    for {set consumed 1} {$consumed < $maxArg} {} 
+    for {set consumed 1} {$consumed < $maxArg} {} {
         set op [lindex $args $consumed]
         set idx [lindex $args ${consumed}+1]
     #    set remain [lassign $a op idx]
@@ -231,45 +231,43 @@ proc ::unknown {args} {
     }
 
     # do all kinds of assignments.
+    upvar $name var
     if {$assignOp ne {}} {
         if {$sliceType eq {^}} {
             error "Assignment to list range is not supported: [string range $args 0 50]"
         }
         if {$sliceType eq {@}} {
             # assign to name @ idx @ idx @ idx addressing a (possibly nested) dictionary.
-            upvar $name d
-            return [dict set d {*}$indices $value]
+            return [dict set var {*}$indices $value]
         } 
         if {[string first ( $name] != -1} {
             # assign to array element.
             return [uplevel 1 [list set $name $value]]
         }
         # assign to plain variable.
-        upvar $name var
         return [set var $value]
     }
     
     # do dictionary fetch.
     if {$sliceType eq {@}} {
         # name @ idx @ idx @ idx means fetch from (possibly nested) dictionary.
-        upvar $name d
-        if { ! [info exists d]} {
+        if { ! [info exists var]} {
             error "Dictionary variable was not found: $name"
         }
         if {$numArgs > ($consumed + 1)} {
             error "Extra words in dictionary fetch: [string range $args 0 50]"
         }
-        if {($numArgs > $consumed) && ! [dict exists $d {*}$indices]} {
+        if {($numArgs > $consumed) && ! [dict exists $var {*}$indices]} {
             # an argument is given also.  that's the default value if none found.
             return [lindex $args $consumed]
         } else {
-            return [dict get $d {*}$indices]
+            return [dict get $var {*}$indices]
         }
     }
     
     # do list fetch.
     if {$sliceType eq {^}} {
-        if { ! [info exists lst]} {
+        if { ! [info exists var]} {
             error "List variable was not found: $name"
         }
         if {$numArgs > $consumed} {
@@ -281,14 +279,14 @@ proc ::unknown {args} {
         }
         if {$end eq {}} {
             # name ^ idx means fetch from list element.  name must be an ordinary variable name.
-            return [lindex $lst $start]
+            return [lindex $var $start]
         } else {
-            # name ^ start ^ end means fetch from list range.  name must be an ordinary variable name.
-            return [lrange $lst $start $end]
+            # name ^ start ^ end means fetch from list range.  name must be an ordinary variable name, not an array or its element.
+            return [lrange $var $start $end]
         }            
     }
     
-    error "Invalid command name '$cmd'.  Did you mean to call a MityBuild recipe with 'require $cmd'?"
+    error "Invalid command name '$name'.  Did you mean to call a MityBuild recipe with 'require $name'?"
 }
 
 proc formatOptions {pattern  arg_list} {
@@ -381,11 +379,11 @@ proc remainder {fn root} {
     parts = [file split $fn]
     root = [file normalize [f+ [pwd] $root]]
     rootParts = [file split $root]
-    if {[parts^0^[llength $rootParts]-1] ne $rootParts} {
+    if {[parts ^ 0 ^ [llength $rootParts]-1] ne $rootParts} {
         error "File '$fn' falls outside of root dir '$root'."
     }
     if {[llength $parts] == [llength $rootParts]} {return {}}
-    return [f+ {*}[parts^[llength $rootParts]^end]]
+    return [f+ {*}[parts ^ [llength $rootParts] ^ end]]
 }
 
 # ########### RECIPE PARADIGM PLUMBING ROUTINES ###############
@@ -434,7 +432,7 @@ proc runMityBuild {projectInitRecipe_  projectFinalRecipe_  defaultToolchain_  a
         cd $::builderDir ;# cd into the script's own directory, in case it was executed from elsewhere.
         initDone_ = 0
         foreach cmd_ $::argv {
-            name_ = [cmd_^0]
+            name_ = [cmd_ ^ 0]
             if {$name_ ni {trace tools} && $initDone_ eq 0} {
                 if {$projectInitRecipe_ ne {}} {require $projectInitRecipe_}
                 require tools$tools {*}$args ;# in case the projectInitRecipe_ didn't call the selected toolchain already.
@@ -455,10 +453,10 @@ proc runMityBuild {projectInitRecipe_  projectFinalRecipe_  defaultToolchain_  a
         puts stderr "MityBuild: Aborting build: [lindex [split $err \n] 0]"
         stackText = "$err
 \n=== STACK ===
-Reminder: subtract 6 from all line numbers shown.
-[errDict@-errorinfo]
+Reminder: subtract 6 from all recipe line numbers shown.
+[errDict @ -errorinfo]
 \n=== ARGUMENTS ==="
-        foreach {k v} [errDict@-errorstack] {
+        foreach {k v} [errDict @ -errorstack] {
             append stackText "\n$k: $v"
         }
         tracer builderStack $stackText
@@ -695,7 +693,7 @@ recipe! tools {toolchain} {
     if { ! [dict exists $::recipes tools$toolchain]} {
         t = [lsort [dict keys $::recipes tools*]]
         t = [lmap r $t {string range $r 5 end}]
-        t = [t^1^end] ;# remove the empty item resulting from the 'tools' recipe; it's always first after sorting.
+        t = [t ^ 1 ^ end] ;# remove the empty item resulting from the 'tools' recipe; it's always first after sorting.
         error "Requested toolchain '$toolchain' was not found among the project's toolchain recipes (case sensitive): $t"
     }        
     export tools $toolchain
