@@ -188,7 +188,6 @@ proc ::unknown {args} {
     for {set consumed 1} {$consumed < $maxArg} {} {
         set op [lindex $args $consumed]
         set idx [lindex $args ${consumed}+1]
-    #    set remain [lassign $a op idx]
         if {$op in {= :=}} {
             set assignOp $op
             incr consumed
@@ -234,7 +233,16 @@ proc ::unknown {args} {
     upvar $name var
     if {$assignOp ne {}} {
         if {$sliceType eq {^}} {
-            error "Assignment to list range is not supported: [string range $args 0 50]"
+            lassign $indices start end more
+            if {$more ne {}} {
+                error "Too many indices in list assignment: [string range $args 0 50]"
+            }
+            if {$end eq {}} {
+                # name ^ idx means replace one list element.  name must be an ordinary variable name.
+                return [lset var $start $value]]
+            } 
+            # name ^ start ^ end means fetch from list range.  name must be an ordinary variable name, not an array or its element.
+            return [set var [lreplace $var $start $end $value]]
         }
         if {$sliceType eq {@}} {
             # assign to name @ idx @ idx @ idx addressing a (possibly nested) dictionary.

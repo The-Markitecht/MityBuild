@@ -82,7 +82,7 @@ set testRecipes {
         assert {[people @ kids @ $kid] == 9}
         i = 3
         assert {[lst ^ end-$i] == {one}}
-        # shorthand dict set.
+        # shorthand dict assignment.
         people @ bob = 48
         assert {[dict get $people bob] == 48}
         people @ kids @ sheldon = 10
@@ -95,6 +95,11 @@ set testRecipes {
         assert {[people @ siri] == 30}
         people @ $name := [people @ $name] + 2
         assert {[people @ siri] == 32}
+        # shorthand list assignment.
+        lst ^ 3 = thr33
+        assert {[lindex $lst 3] eq {thr33}}
+        lst ^ 2 ^ end-1 := 12 + 11
+        assert {$lst eq {zero one 23 four}}
         # unknown command and var names.
         try {
             junkCommand
