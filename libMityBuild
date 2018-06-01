@@ -4,6 +4,8 @@
 # by Mark Hubbard.
 # this is a small, simple project builder tool that still provides impressive power, ease, flexibility, and control.
 
+package require Tcl 8.6
+
 # ########### FILESYSTEM, OS, AND UTILITY ROUTINES ###############
 
 proc assert {exp {msg {}}} {
@@ -176,8 +178,6 @@ proc ::unknown {args} {
 
     #puts $args
     
-    # bite the command off the front of the args list.
-    #set remain [lassign $args cmd]
     # bite 2 args off the front of the arg list.  repeat as long as that
     # constitutes another indexing operation for a dictionary or list.
     set assignOp {}
@@ -1052,11 +1052,12 @@ recipe toolsGccArmClangLib {} {
 } run {}
 
 ############### INITIALIZE LIBMITYBUILD #####################
-package require Tcl 8.6
-::builderDir = [file normalize [f+ [pwd] [file dirname [info script]]]]
+::builderDir = [file normalize [f+ [pwd] [file dirname $::argv0]]]
+if {$::tcl_interactive} {::builderDir = [pwd]}
 ::ignoreImports = [list args] ;# never import the variable 'args'; that just clutters the frame.
 ::built = [dict create]
 ::callTree = [dict create 0 [dict create name builderScriptFile]]
 ::prevCallSerial = 0
 callSerial_ = 0
+package provide MityBuild 3.0
 

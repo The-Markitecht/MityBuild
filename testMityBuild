@@ -1,6 +1,6 @@
 #!/usr/bin/env tclsh
 
-source [file join [pwd] [file dirname [info script]] libMityBuild]
+package require MityBuild
 
 set testRecipes {
     # these recipes are wrapped in a big brace block for testing purposes.  that's not normal.
