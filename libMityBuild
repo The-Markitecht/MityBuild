@@ -4,6 +4,13 @@
 # by Mark Hubbard.
 # this is a small, simple project builder tool that still provides impressive power, ease, flexibility, and control.
 
+# to get started with some of the features (such as language shorthand):
+#     package require MityBuild
+# trouble finding that e.g. on Windows?   put: 
+#     TCLLIBPATH=path/to/mitybuild/repo  
+# prior to name of build script when invoking.  or add it to your shell environment.
+
+
 package require Tcl 8.6
 
 # ########### FILESYSTEM, OS, AND UTILITY ROUTINES ###############
