@@ -521,7 +521,7 @@ proc recipe {name argList exportBody runWord runBody} {
         importLocals
         $exportBody
         if { \$enableRunBody } {
-            if { ! \[check $name $fetchEachArg\]} {
+            if { \$enableRunBody == 2 | ! \[check $name $fetchEachArg\]} {
                 dict set ::callTree \$callSerial_ run 1
                 $runBody
             }
@@ -574,6 +574,14 @@ proc requireExports {name args} {
     # a recipe for a library exports all of its paths, and another recipe needs to re-use
     # those paths in order to clean that library.
     uplevel 1 [list requireCore $name 0 $args]
+}
+
+proc force {name args} {
+    # 'force' is identical to 'require' except the recipe's runBody will
+    # definitely execute.  this is useful when you need to explicitly re-run 
+    # a recipe with the same parameters.
+    
+    uplevel 1 [list requireCore $name 2 $args]
 }
 
 proc check {args} {
