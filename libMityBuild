@@ -15,6 +15,8 @@ package require Tcl 8.6
 
 # ########### FILESYSTEM, OS, AND UTILITY ROUTINES ###############
 
+interp alias {} e {} expr
+
 proc assert {exp {msg {}}} {
     tracer asserts "testing: $exp"
     if {$msg eq {}} {set msg "assert failed: $exp"}
@@ -29,9 +31,14 @@ proc f+ {args} {
 proc tracer {topic message} {
     # output the given diagnostic message if the given MityBuild trace topic is enabled.
     # note: this is totally distinct from the Tcl built-in 'trace' command.
-    if { ! [check trace $topic]} return
+    if { ! [tracing $topic]} return
     puts stderr "MityBuild: $message"
 }
+
+proc tracing {topic} {
+    return [e {$topic in $::traceTopics}]
+}
+set ::traceTopics [list]
 
 proc traceBuilt {channel} {
     puts $channel "MityBuild: built recipes:\n    [join [lsort [dict keys $::built]] "\n    "]"
@@ -136,7 +143,7 @@ proc x {args} {
         }
         if {$errorAction eq {-abort}} {
             puts stderr "MityBuild: Toolchain program failed$sm:\n$args\nMityBuild aborting."
-            if [check trace calls] {traceCalls stderr}
+            if [tracing calls] {traceCalls stderr}
             exit 1
         } elseif {$errorAction eq {-throw}} {
             error "Toolchain program failed$sm: $args"
@@ -167,7 +174,7 @@ proc quoteForBash {argList} {
 proc showScript {argList} {
     # output a "scriptable" copy of the given command, suitable for pasting into a shell.
     #TODO: also capture file copy, move, mkdir, delete, etc. this way.
-    if [check trace script] { 
+    if [tracing script] { 
         puts stderr [quoteForBash [list cd [pwd]]]
         puts stderr "    [quoteForBash $argList]"
     }
@@ -462,7 +469,7 @@ proc runMityBuild {projectInitRecipe_  projectFinalRecipe_  defaultToolchain_  a
             }
         }
         if {$projectFinalRecipe_ ne {}} {require $projectFinalRecipe_}
-        if [check trace calls] {traceCalls stderr}
+        if [tracing calls] {traceCalls stderr}
         
     } trap {} {err errDict} {
         puts stderr "MityBuild: Aborting build: [lindex [split $err \n] 0]"
@@ -579,7 +586,7 @@ proc requireExports {name args} {
 proc force {name args} {
     # 'force' is identical to 'require' except the recipe's runBody will
     # definitely execute.  this is useful when you need to explicitly re-run 
-    # a recipe with the same parameters.
+    # a recipe with the same parameters as before.
     
     uplevel 1 [list requireCore $name 2 $args]
 }
@@ -593,6 +600,19 @@ proc check {args} {
     return $c
 }
 ::built = [dict create]
+
+proc forgetBuilt {args} {
+    # forgets having ever built the specified recipe (with arguments) already.
+    # if no recipe is given, forgets ALL built recipes.
+    # this is useful when you need to explicitly re-run one or several
+    # recipes with the same parameters as before.
+    
+    if {[llength $args]} {
+        ::built = [dict remove $::built $args]
+    } else {
+        ::built = [dict create]
+    }
+}
 
 proc importLocals {} {
     # propagate values of all local variables (except arrays) into the current stack frame from its caller
@@ -705,9 +725,7 @@ proc defer {args} {
 recipe! trace {args} {} run {
     # recipe for the command line to activate a tracer topic.
     # note: this is totally distinct from the Tcl built-in 'trace' command.
-    foreach topic $args {
-        provide trace $topic
-    }
+    lappend ::traceTopics {*}$args
 }
 
 recipe! tools {toolchain} {
@@ -946,7 +964,7 @@ recipe ccLink {binFn} {} run {
     # that's counter-intuitive, but that's how gcc (really ld) works.
     lappend linkerOptions  {*}[formatOptions {"-l%s"} $dynamicLibNames]  
     tracer linker "    dynamic libs:\n        [join $dynamicLibNames "\n        "]"
-    if [check trace linker] {
+    if [tracing linker] {
         tracer linker "Linker trace is enabled.  Linker will list out all object files it uses."
         lappend linkerOptions -Wl,-t
     }
