@@ -795,6 +795,7 @@ recipe toolsCcDefault {} {
     export readelf readelf ;# program name of ELF binary file parser.
     # optimization; s = small code, 0 = no optim (best for source-level debugging).
     if { ! [info exists optim]} {export optim 0} 
+    if { ! [info exists debugLevel]} {export debugLevel 3} 
     export commonOptions [list] ;# used for all compiler and linker calls.
     export sourceDependencyOptions [list] ;# causes dumping source file dependency list into .d file.
     export sourceLanguagePatterns [dict create \
@@ -980,7 +981,7 @@ recipe toolsClang {} {
     # sudo apt-get install libc++-dev
     export cc clang++  ;# Clang for the PC host's operating system.
     export ld $cc  ;# use same tool again for linking.
-    export commonOptions [list -pipe -O$optim -g3 -Wall -fmessage-length=0 -fPIC]
+    export commonOptions [list -pipe -O$optim -g$debugLevel -Wall -fmessage-length=0 -fPIC]
     export sourceDependencyOptions [list -MMD -MT sources] ;# causes dumping source file dependency list into .d file.
     export cLanguageOptions [list {*}$commonOptions -c -xc++ -std=c++14 -stdlib=libc++ {*}$sourceDependencyOptions]
     export asmLanguageOptions [list {*}$commonOptions -c -xassembler-with-cpp {*}$sourceDependencyOptions]
@@ -1013,7 +1014,7 @@ recipe toolsGcc {} {
     # gcc toolchain settings for all recipes.  GCC for the PC's native operating system with GNU libstdc++.
     export cc g++ 
     export ld $cc  ;# use same tool again for linking.
-    export commonOptions [list -pipe -O$optim -g3 -Wall -fmessage-length=0 -fPIC]
+    export commonOptions [list -pipe -O$optim -g$debugLevel -Wall -fmessage-length=0 -fPIC]
     export sourceDependencyOptions [list -MMD -MT sources] ;# causes dumping source file dependency list into .d file.
     export cLanguageOptions [list {*}$commonOptions -c -xc++ -std=c++14 {*}$sourceDependencyOptions]
     export asmLanguageOptions [list {*}$commonOptions -c -xassembler-with-cpp {*}$sourceDependencyOptions]
