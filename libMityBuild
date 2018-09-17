@@ -973,7 +973,9 @@ recipe ccLink {binFn} {} run {
     file mkdir $toolDir
     file delete $binFn ;# leave no file behind in case the tool fails.
     cd $toolDir ;# to contain any additional files the tool may write.
-    x $ld {*}$linkerOptions
+    x  $ld  -Wl,--start-group  {*}$linkerOptions  -Wl,--end-group
+    # ^^^ --start-group is used there as a cheap hack.  the alternative would be automatically
+    # sorting all the static and dynamic libraries (and .o files?) in order of dependency.
     file delete $lsfn ;# no need to keep this file; its content can be traced above.
     export linkerObjFns [list] ;# reset this list to potentially prepare for the next link.
     provide link done $binFn ;# recipes can check for this to see if a tool was really executed here, not skipped.
