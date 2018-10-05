@@ -370,4 +370,5 @@ for {set i 1} {$i < 1000} {incr i} {
         runMityBuild settings$i final CcDefault
     }
 }
+puts "ALL TESTS PASS."
 
