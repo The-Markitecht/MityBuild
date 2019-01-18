@@ -2,6 +2,15 @@
 
 package require MityBuild
 
+rename ::unknown ::oopOldUnknown
+proc ::unknown {args} {
+    set parts [split [lindex $args 0] . ]
+    if {[llength $parts] > 1} {
+        
+    }
+    ::oopOldUnknown {*}$args
+}
+
 proc class {clsName clsBody} {
     # declare a class type containing one or more "var" and/or "method".
     
@@ -9,57 +18,35 @@ proc class {clsName clsBody} {
     catch {namespace delete ${clsName}}
     namespace eval $clsName {}
     set ${clsName}::body $clsBody
-    
-    # define a proc to instantiate object of the class.
-    # syntax looks like a .new method of the class itself.
-    proc $clsName.new {objName args} "object {$clsName} {$clsBody} \$objName \$args"
-}
-
-proc object {clsName clsBody objName ctorArgs} {
-    # only for internal use of OOP framework.  instantiates an object of the given class.
-    
-    # clear out a namespace with the same name as the object, for storing its vars.
-    catch {namespace delete ${name}}
-    namespace eval $objName {
-        set vars [list class]
-        set vars2 [list class class]
-    }    
-    set ${objName}::class $clsName
-    
-    # define a proc with the same name as the object, for setting/getting its vars.
-    interp alias {} $objName {} defaultAccessor $objName
-    
-    # define a proc for executing arbitrary code.
-    #proc $objName {args} "namespace eval $objName \$args"
+    set ${clsName}::template [dict create class $clsName]
     
     # define methods of the object.
-    set this $objName
     eval $clsBody
-    
-    # call object ctor, if any.
-    if {[llength [info commands $objName.new]]} {
-        $objName.new {*}$ctorArgs
-    } else {
-        # no ctor; just set the given series of variables, if any.
-        defaultCtor $ctorArgs 
-    }
+
+    # define a proc to instantiate object of the class.
+    # syntax looks like a .new method of the class itself.
+    proc ${clsName}::new {objName args} "newObject {$clsName} \$objName \$args"
 }
 
-proc defaultAccessor {objName varName args} {
-    # provides implicit read/write access to all object vars.
-    if { ! [info exists ${objName}::$varName]} {
-        error "Variable '[string range $varName 0 31]' not found in class '[set ${objName}::class]'.  Maybe you meant to call a method instead?"
+proc newObject {clsName objName ctorArgs} {
+    # only for internal use of OOP framework.  instantiates an object of the given class.
+    
+    upvar 2 $objName this
+    set this [set ${clsName}::template]
+    
+    # call object ctor, if any.
+    if {[llength [info commands ${clsName}::ctor]]} {
+        ${clsName}::ctor {*}$ctorArgs
+    } else {
+        # no ctor; just set the given series of variables, if any.
+        set this [dict replace $this {*}$ctorArgs]
     }
-    if {[string range $varName 0 0] eq {_}} {
-        error "Variable '[string range $varName 0 31]' in class '[set ${objName}::class]' is private."
-    }
-    set ${objName}::$varName {*}$args
+    return $objName
 }
 
 proc inherit {baseClassName} {
     # inherits the methods and variables of the given base class into the current class.
     # overridden base class methods are accessible with syntax 'base.myMethod'. 
-    upvar this this
     eval [set ${baseClassName}::body]
     var baseClass $baseClassName
 }
@@ -82,6 +69,7 @@ proc method {methodName argList body} {
     #       or 'myObject::myMethod'.
     upvar 1 this this
     if {[llength [info commands ${this}::$methodName]]} {
+        catch {rename ${this}::base.$methodName {} }
         rename ${this}::$methodName ${this}::base.$methodName
     }
     proc ${this}::$methodName $argList "
@@ -101,7 +89,20 @@ proc defaultCtor {ctorArgs} {
     }        
 }
 
-set testCode {
+proc dumpNs {ns indent} {
+    vars = [info vars ${ns}::tot]
+    if {[llength $vars]} {
+        puts "$indent$ns"
+        foreach v [info vars ${ns}::tot] {
+            puts "$indent    *$v"
+        }
+    }
+    foreach ch [namespace children $ns] {
+        dumpNs $ch "$indent    "
+    }
+}
+
+proc testCode {} {
     namespace eval nsTest {
         variable a 5
         proc m1 {} {
@@ -169,15 +170,15 @@ set testCode {
     
     # test refusing to set/get a nonexistent var
     assert {[catch {boo color black}]}
-    puts [lindex [split $errorInfo \n] 0]
+    puts [lindex [split $::errorInfo \n] 0]
     assert {[catch {boo color}]}
-    puts [lindex [split $errorInfo \n] 0]
+    puts [lindex [split $::errorInfo \n] 0]
 
     # test refusing to set/get a private var
     assert {[catch {boo _poop black}]}
-    puts [lindex [split $errorInfo \n] 0]
+    puts [lindex [split $::errorInfo \n] 0]
     assert {[catch {boo _poop}]}
-    puts [lindex [split $errorInfo \n] 0]
+    puts [lindex [split $::errorInfo \n] 0]
 
     # test inheritance of vars and methods, including 'new'.
     class Dog {
@@ -205,10 +206,63 @@ set testCode {
     assert {[tipper.txt] eq {Dog tipper is a brown BullChow. with coat short.}}
     assert {[tipper age] == 9}
     assert {[tipper.polymorphic] eq {Dog tipper is a brown BullChow. with coat short.}}
-    
-#TODO: explore any existing support for multiple inheritance.  probly works fine but only memorizes name of final-given base class.
 
-#TODO: re-test without MityBuild?  maybe only the test cases require it.
+    # test re-use of an object name.
+    class Sum {
+        var tot 0
+        method add {v} {
+            tot := ($tot + $v) % 255
+        }
+    }
+    for {set i 0} {$i < 3} {incr i} {
+        Sum.new sum
+        sum.add 5
+        sum.add 5
+        sum.add 5
+        assert {[sum tot] == 15}
+    }    
+
+    # test scope and lifetime of a local object.
+    proc locals {} {
+        Snake.new slinky length 10
+        assert {[namespace exists slinky]}
+        assert {[llength [info commands slinky]]}
+        assert {[slinky length] == 10}
+    }
+    locals
+    assert { ! [namespace exists slinky]}
+    assert { ! [llength [info commands slinky]]}
+    
+    # test method call on nested object.
+    class House {
+        var rooms
+    }
+    class Room {
+        var lights
+    }
+    cora = [House rooms [dict create \
+        kitchen [Room lights off] \
+        lizzie [Room lights on]]]
+    [cora.rooms @ lizzie].lights off
+    # wow, that's complex to implement.  and that's just one simple variation.
 }
 
-#eval $testCode; exit
+testCode; exit
+
+TODO = {
+fix difficulties around composing objects into graphs.  awkward to create,
+to assign, and to call.
+
+fix difficulties around object scope.  objects created
+in procs are not local; they're global, and visible outside the proc.  they can clash with
+names of others outside the proc.  
+
+fix difficulties around object lifetime.  objects created
+in procs live on after the proc ends, resulting
+in a resource leak (using dynamic name each call) or the need to destroy & recreate in 
+each call (using fixed name).  other issues too.
+    
+explore any existing support for multiple inheritance.  probly works fine but only memorizes name of final-given base class.
+
+re-test without MityBuild?  maybe only the test cases require it.
+}
