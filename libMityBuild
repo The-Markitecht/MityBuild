@@ -776,7 +776,7 @@ recipe packStaticLib {binFn} {} run {
     require $toolsPackStaticLibRecipe $binFn
 }
 
-proc exportLibrary {libName {linkType packStaticLib} {libSourceDir {}}} {
+proc exportLibrary {libName {linkType packStaticLib} {libSrcDir {}}} {
     # this routine exports the usual variables for a library.  
     # those are named after the given library name.
     # using this is optional; it just avoids some boilerplate export's and file join's in cases where the 
@@ -785,11 +785,14 @@ proc exportLibrary {libName {linkType packStaticLib} {libSourceDir {}}} {
     # the extra complexity is here because it's generic.  it's generating recipe code on the fly.
 
     importLocals
-    if {$libSourceDir eq {}} {
+    if {$libSrcDir eq {}} {
         # assume directory name is same as libName
-        libSourceDir = [f+ $projectSourceDir $libName]
+        libSrcDir = [f+ $projectSrcDir $libName]
     }
-    binDir = [f+ $projectBinDir [remainder $libSourceDir $projectSourceDir] $libName]
+    binDir = [f+ $projectBinDir [remainder $libSrcDir $projectSrcDir]]
+    if {[file tail $binDir] ne $libName} {
+        binDir = [f+ $binDir $libName]
+    }
     libSearchCode = {}
     if {$linkType eq {packStaticLib}}  {
         binFn = [f+ $binDir lib$libName.a]        
@@ -800,10 +803,10 @@ proc exportLibrary {libName {linkType packStaticLib} {libSourceDir {}}} {
         libSearchCode = "export+ libSearchDirs {$binDir}"
     }
     code = "
-        export ${libName}SourceDir {$libSourceDir}
+        export ${libName}SrcDir {$libSrcDir}
         export ${libName}BinDir {$binDir}
         export ${libName}BinFn {$binFn}
-        export+ includeDirs {$libSourceDir}
+        export+ includeDirs {$libSrcDir}
         $libSearchCode
         defer export+ $libList {$binFn}
     "
