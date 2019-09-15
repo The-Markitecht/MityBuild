@@ -128,11 +128,19 @@ proc x {args} {
     }
     upvar childExitStatus childExitStatus
     childExitStatus = {}
+    output = {}
     try {
         output = [exec -ignorestderr {*}$args ]
         childExitStatus = 0
-        return $output
     } trap {} {errText errDict} {
+        # after a child exits with nonzero process status, this line recovers its output, 
+        # to be returned to the caller down below.  unfortunately it also includes some
+        # explanation of the failure appended to the end by Tcl.  eliminating that would require
+        # reworking this proc to redirect all output into a Tcl channel to be flushed and captured into a variable,
+        # except any output that was already explicitly redirected.
+        output = $errText
+        # dict for {k v} $errDict { puts "<k<$k>v>$v" }
+        # puts "##[errDict @ -errorinfo]##"
         sm = {}
         if [dict exists $errDict -errorcode] {
             lassign [errDict @ -errorcode] detectionMethod pid ces
@@ -149,6 +157,7 @@ proc x {args} {
             error "Toolchain program failed$sm: $args"
         }
     }
+    return $output
 }
 
 proc quoteForBash {argList} {
@@ -158,7 +167,10 @@ proc quoteForBash {argList} {
     all = {}
     delim = {}
     foreach a $argList {
-        if [regexp -nocase -expanded { [^a-z0-9/._-] } $a] {
+        if { [regexp  ^>|^2>|^<  $a] && ($delim ne {}) } {
+            # found a bash redirect operator; use word as-is.
+            append all "$delim$a"
+        } elseif {[regexp -nocase -expanded { [^a-z0-9/._-] } $a]} {
             # surround with double quotes, first removing any existing surrounding ones,
             # and escape any in the middle with a backslash.
             append all "$delim\"[string map [list \" \\\" ] [string trim $a \" ]]\""
