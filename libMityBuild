@@ -1,15 +1,34 @@
 #!/usr/bin/env tclsh
 
 # MityBuild
-# by Mark Hubbard.
-# this is a small, simple project builder tool that still provides impressive power, ease, flexibility, and control.
+# Copyright 2018 Mark Hubbard, a.k.a. "TheMarkitecht"
+# http://www.TheMarkitecht.com
+#
+# Project home:  http://github.com/The-Markitecht/MityBuild
+# MityBuild is a small, simple project builder tool that still provides
+# impressive power, ease, flexibility, and control.
+#
+# This file is part of MityBuild.
+#
+# MityBuild is free software: you can redistribute it and/or modify
+# it under the terms of the GNU Lesser General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# MityBuild is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU Lesser General Public License for more details.
+#
+# You should have received a copy of the GNU Lesser General Public License
+# along with MityBuild.  If not, see <https://www.gnu.org/licenses/>.
+
 
 # to get started with some of the features (such as language shorthand):
 #     package require MityBuild
-# trouble finding that e.g. on Windows?   put: 
-#     TCLLIBPATH=path/to/mitybuild/repo  
+# trouble finding that e.g. on Windows?   put:
+#     TCLLIBPATH=path/to/mitybuild/repo
 # prior to name of build script when invoking.  or add it to your shell environment.
-
 
 package require Tcl 8.6
 
@@ -93,24 +112,24 @@ proc x {args} {
     # return from the routine any output that wasn't redirected to stdout.
     # note that redirecting to stdout is the default in this routine.
     # to override that, specify one or more redirects along with the tool options.
-    
+
     # if the first argument begins with a dash, it's assumed to be one of the following
     # error handling modes.  these determine the action if the child fails to launch
     # e.g. because the specified executable is not found, or if the child exits with
     # a non-zero exit status.
-    # -abort means abort the build, provide troubleshooting messages on stderr, 
-    # and exit the Tcl interpreter (status 1).  this is the default action.  
+    # -abort means abort the build, provide troubleshooting messages on stderr,
+    # and exit the Tcl interpreter (status 1).  this is the default action.
     # it prevents displaying (or saving to disk) a large Tcl stack trace simply because a tool failed.
     # -throw means throw a Tcl error with a descriptive message, which can be trapped by
-    # try or catch.  
+    # try or catch.
     # -ignore means do nothing.
-    
+
     # in all cases, variable childExitStatus is set in the caller's stack frame.
     # it is an integer if it could be determined from the child, otherwise empty string
     # e.g. because the child failed to launch, or was killed by a kernel signal.
 
     #TODO: find out why this throws an error in some environments (Geany, SystemD) when << redirection is used.
-    
+
     errorAction = [args ^ 0]
     if [string match -* $errorAction] {
         if {$errorAction ni [list -abort -throw -ignore]} {
@@ -133,7 +152,7 @@ proc x {args} {
         output = [exec -ignorestderr {*}$args ]
         childExitStatus = 0
     } trap {} {errText errDict} {
-        # after a child exits with nonzero process status, this line recovers its output, 
+        # after a child exits with nonzero process status, this line recovers its output,
         # to be returned to the caller down below.  unfortunately it also includes some
         # explanation of the failure appended to the end by Tcl.  eliminating that would require
         # reworking this proc to redirect all output into a Tcl channel to be flushed and captured into a variable,
@@ -147,7 +166,7 @@ proc x {args} {
             if {$detectionMethod eq {CHILDSTATUS}} {
                 childExitStatus = $ces
                 sm = " with exit status $ces"
-            } 
+            }
         }
         if {$errorAction eq {-abort}} {
             puts stderr "MityBuild: Toolchain program failed$sm:\n$args\nMityBuild aborting."
@@ -186,7 +205,7 @@ proc quoteForBash {argList} {
 proc showScript {argList} {
     # output a "scriptable" copy of the given command, suitable for pasting into a shell.
     #TODO: also capture file copy, move, mkdir, delete, etc. this way.
-    if [tracing script] { 
+    if [tracing script] {
         puts stderr [quoteForBash [list cd [pwd]]]
         puts stderr "    [quoteForBash $argList]"
     }
@@ -203,7 +222,7 @@ proc ::unknown {args} {
     # DO NOT USE SHORTHAND TCL IN THIS ROUTINE!
 
     #puts $args
-    
+
     # bite 2 args off the front of the arg list.  repeat as long as that
     # constitutes another indexing operation for a dictionary or list.
     set assignOp {}
@@ -229,7 +248,7 @@ proc ::unknown {args} {
             break
         }
     }
-    
+
     # evaluate & memorize the right-hand side of an assignment.
     if {$assignOp eq {=}} {
         # infix = means assign a value, like an ordinary Tcl [set].
@@ -248,7 +267,7 @@ proc ::unknown {args} {
         set value [uplevel 1 [list expr [lrange $args $consumed end]]]
         #puts "expr: ~[lrange $args $consumed end]~ = $value"
     }
-    
+
     # check for accidental dollar sign.
     lassign $args name
     if {[llength $name] != 1} {
@@ -266,14 +285,14 @@ proc ::unknown {args} {
             if {$end eq {}} {
                 # name ^ idx means replace one list element.  name must be an ordinary variable name.
                 return [lset var $start $value]]
-            } 
+            }
             # name ^ start ^ end means fetch from list range.  name must be an ordinary variable name, not an array or its element.
             return [set var [lreplace $var $start $end $value]]
         }
         if {$sliceType eq {@}} {
             # assign to name @ idx @ idx @ idx addressing a (possibly nested) dictionary.
             return [dict set var {*}$indices $value]
-        } 
+        }
         if {[string first ( $name] != -1} {
             # assign to array element.
             return [uplevel 1 [list set $name $value]]
@@ -281,7 +300,7 @@ proc ::unknown {args} {
         # assign to plain variable.
         return [set var $value]
     }
-    
+
     # do dictionary fetch.
     if {$sliceType eq {@}} {
         # name @ idx @ idx @ idx means fetch from (possibly nested) dictionary.
@@ -298,7 +317,7 @@ proc ::unknown {args} {
             return [dict get $var {*}$indices]
         }
     }
-    
+
     # do list fetch.
     if {$sliceType eq {^}} {
         if { ! [info exists var]} {
@@ -317,17 +336,17 @@ proc ::unknown {args} {
         } else {
             # name ^ start ^ end means fetch from list range.  name must be an ordinary variable name, not an array or its element.
             return [lrange $var $start $end]
-        }            
+        }
     }
-    
+
     error "Invalid command name '$name'.  Did you mean to call a MityBuild recipe with 'require $name'?"
 }
 
 proc formatOptions {pattern  arg_list} {
     # return a space-separated string containing each item in the given arg_list formatted by the given pattern.
-    # this is good e.g. for passing a whole list of paths to gcc with the -I or -L options. 
+    # this is good e.g. for passing a whole list of paths to gcc with the -I or -L options.
     # if the arg_list contains disk paths, it's good practice to specify quote marks in the pattern to enclose them.
-    # that allows for paths that include spaces etc.  but when invoking gcc, the caller must make sure the quotes 
+    # that allows for paths that include spaces etc.  but when invoking gcc, the caller must make sure the quotes
     # wrap around the entire argument.  wrapping them around just the directory path instead
     # causes gcc to see them.  then it silently uses the wrong search path (one with quotes in it) and usually fails.
 
@@ -367,21 +386,21 @@ proc isNewer {objectFn sourceFns} {
 
 proc recurseDepthFirst {dir filePattern dirPattern script} {
     tracer recurse "recurseDepthFirst $dir $filePattern $dirPattern"
-    importLocals 
+    importLocals
     dirs = [glob -nocomplain -types d -join -- $dir $dirPattern]
     foreach child [lsort $dirs] {
         recurseDepthFirst $child $filePattern $dirPattern $script
     }
-    files = [glob -nocomplain -types f -join -- $dir $filePattern] 
+    files = [glob -nocomplain -types f -join -- $dir $filePattern]
     foreach fn [lsort $files] $script
 }
 
 proc recurseBreadthFirst {dir filePattern dirPattern script} {
     tracer recurse "recurseBreadthFirst $dir $filePattern $dirPattern $dir"
-    importLocals 
-    files = [glob -nocomplain -types f -join -- $dir $filePattern] 
+    importLocals
+    files = [glob -nocomplain -types f -join -- $dir $filePattern]
     foreach fn [lsort $files] $script
-    dirs = [glob -nocomplain -types d -join -- $dir $dirPattern] 
+    dirs = [glob -nocomplain -types d -join -- $dir $dirPattern]
     foreach child [lsort $dirs] {
         recurseBreadthFirst $child $filePattern $dirPattern $script
     }
@@ -406,7 +425,7 @@ proc findFiles {filePatternsList dirPattern dir} {
 
 proc remainder {fn root} {
     # identify and ignore the given prefix 'root' on front of the given filename 'fn'.  return the remaining portion.
-    # this function is as lenient as possible; it resolves any relative paths, 
+    # this function is as lenient as possible; it resolves any relative paths,
     # symlinks, and extraneous dots and slashes.  relative paths are resolved from the current working dir.
     # it will throw an error if the file truly falls outside the given root dir.
     fn = [file normalize [f+ [pwd] $fn]]
@@ -438,11 +457,11 @@ proc runMityBuild {projectInitRecipe_  projectFinalRecipe_  defaultToolchain_  a
             puts stderr "\nTo call a recipe with parameters, quote the entire call with shell quote marks."
             return
         }
-        
+
         # init builder.
         # now this is done at the bottom of this file instead, to better support calling
         # library functions such as 'require trace' prior to runMityBuild.
-        
+
         # memorize the call to runMityBuild, for troubleshooting purposes.
         set callSerial_ [incr ::prevCallSerial]
         dict set ::callTree $callSerial_ name runMityBuild
@@ -450,14 +469,14 @@ proc runMityBuild {projectInitRecipe_  projectFinalRecipe_  defaultToolchain_  a
         dict update ::callTree $parentCallSerial detail {
             dict lappend detail calls $callSerial_
         }
-        
+
         # make sure all toolchain-related variables are exported to here, so they carry to every recipe.
         require toolsCcDefault
         # defaultToolchain_ is the default toolchain; it doesn't have to be mentioned on the command line.
         # if one is selected there, it will override the defaultToolchain_ set here.
         tools = $defaultToolchain_
         assert {$tools ne {}}
-        
+
         # take each command line parameter as a complete call to a recipe, or to an ordinary Tcl proc.
         # if the parameter contains multiple words, the 2nd and further words are taken as parameters to the call.
         # as a special case, 'trace' or 'tools' recipes are allowed to execute even before project init recipes.
@@ -482,7 +501,7 @@ proc runMityBuild {projectInitRecipe_  projectFinalRecipe_  defaultToolchain_  a
         }
         if {$projectFinalRecipe_ ne {}} {require $projectFinalRecipe_}
         if [tracing calls] {traceCalls stderr}
-        
+
     } trap {} {err errDict} {
         puts stderr "MityBuild: Aborting build: [lindex [split $err \n] 0]"
         stackText = "$err
@@ -505,7 +524,7 @@ Reminder: subtract 6 from all recipe line numbers shown.
             puts stderr "\nMityBuild: Builder's complete stack trace and other info saved to $stackFn"
         } trap {} e2 {
             puts stderr "\nMityBuild: Tried and failed to write stack trace to $stackFn"
-        }      
+        }
         puts stderr {MityBuild: Specify "trace builderStack" to also see the stack on the console.}
         exit 1
     }
@@ -520,7 +539,7 @@ proc recipe! {name argList exportBody runWord runBody} {
 
 proc recipe {name argList exportBody runWord runBody} {
     # this procedure defines the given recipe.
-    
+
     if {$runWord != {run}} {
         error "Syntax error: expected 'run' keyword in recipe $name"
     }
@@ -589,7 +608,7 @@ proc require {name args} {
 
 proc requireExports {name args} {
     # 'requireExports' is identical to 'require' except only the recipe's exportBody is
-    # used.  its runBody is ignored during this call.  this is useful e.g. when 
+    # used.  its runBody is ignored during this call.  this is useful e.g. when
     # a recipe for a library exports all of its paths, and another recipe needs to re-use
     # those paths in order to clean that library.
     uplevel 1 [list requireCore $name 0 $args]
@@ -597,9 +616,9 @@ proc requireExports {name args} {
 
 proc force {name args} {
     # 'force' is identical to 'require' except the recipe's runBody will
-    # definitely execute.  this is useful when you need to explicitly re-run 
+    # definitely execute.  this is useful when you need to explicitly re-run
     # a recipe with the same parameters as before.
-    
+
     uplevel 1 [list requireCore $name 2 $args]
 }
 
@@ -618,7 +637,7 @@ proc forgetBuilt {args} {
     # if no recipe is given, forgets ALL built recipes.
     # this is useful when you need to explicitly re-run one or several
     # recipes with the same parameters as before.
-    
+
     if {[llength $args]} {
         ::built = [dict remove $::built $args]
     } else {
@@ -656,7 +675,7 @@ proc importLocals {} {
 }
 
 proc findImportLocal {name {errorMsg {noError}}} {
-    # walk up the call stack until a local variable (not array) with the given name is found, 
+    # walk up the call stack until a local variable (not array) with the given name is found,
     # and import its value as a local in the current proc.  also return the value.
     # if it's never found, the given error message is thrown.  that's optional.
     # DO NOT USE SHORTHAND TCL IN THIS ROUTINE!
@@ -671,7 +690,7 @@ proc findImportLocal {name {errorMsg {noError}}} {
     }
     if {$errorMsg ne {noError}} {
         error "$msg\nfindImportLocal: could not find variable '$name'"
-    } 
+    }
 }
 
 proc exportCore {name op} {
@@ -719,7 +738,7 @@ proc export+ {name args} {
 }
 
 proc trapExports {varNameList} {
-    # prevent any of the variable names in the given list from being exported up to the 
+    # prevent any of the variable names in the given list from being exported up to the
     # current recipe from any called recipes.  for example, a distinct toolchain can be
     # isolated from all other recipes by 'trapExports $toolVars' then 'require myTools'.
     upvar trapVars_ trapVars_
@@ -729,7 +748,7 @@ proc trapExports {varNameList} {
 proc defer {args} {
     # memorize the given command, to apply later, after the end of the recipe.
     upvar 2 deferExports_ exp
-    lappend exp $args    
+    lappend exp $args
 }
 
 ############### REUSABLE RECIPES FOR TYPICAL PROJECTS #####################
@@ -748,7 +767,7 @@ recipe! tools {toolchain} {
         t = [lmap r $t {string range $r 5 end}]
         t = [t ^ 1 ^ end] ;# remove the empty item resulting from the 'tools' recipe; it's always first after sorting.
         error "Requested toolchain '$toolchain' was not found among the project's toolchain recipes (case sensitive): $t"
-    }        
+    }
     export tools $toolchain
 } run {}
 
@@ -783,17 +802,17 @@ recipe compileAndLink {binFn linkType sourceRootDir sourceFns} {} run {
 }
 
 recipe packStaticLib {binFn} {} run {
-    # static libs are actually packed into 1 file by the 
+    # static libs are actually packed into 1 file by the
     # archiver tool rather than actually linked with the linker.
     require $toolsPackStaticLibRecipe $binFn
 }
 
 proc exportLibrary {libName {linkType packStaticLib} {libSrcDir {}}} {
-    # this routine exports the usual variables for a library.  
+    # this routine exports the usual variables for a library.
     # those are named after the given library name.
-    # using this is optional; it just avoids some boilerplate export's and file join's in cases where the 
+    # using this is optional; it just avoids some boilerplate export's and file join's in cases where the
     # names and paths are sufficiently predictable.
-    # an ordinary recipe for a specific library would be much simpler; 
+    # an ordinary recipe for a specific library would be much simpler;
     # the extra complexity is here because it's generic.  it's generating recipe code on the fly.
 
     importLocals
@@ -807,10 +826,10 @@ proc exportLibrary {libName {linkType packStaticLib} {libSrcDir {}}} {
     }
     libSearchCode = {}
     if {$linkType eq {packStaticLib}}  {
-        binFn = [f+ $binDir lib$libName.a]        
+        binFn = [f+ $binDir lib$libName.a]
         libList = staticLibFns
     } else {
-        binFn = [f+ $binDir lib$libName.so]        
+        binFn = [f+ $binDir lib$libName.so]
         libList = dynamicLibNames
         libSearchCode = "export+ libSearchDirs {$binDir}"
     }
@@ -835,8 +854,8 @@ recipe toolsCcDefault {} {
     export ar ar ;# program name of archiver for static libraries.
     export readelf readelf ;# program name of ELF binary file parser.
     # optimization; s = small code, 0 = no optim (best for source-level debugging).
-    if { ! [info exists optim]} {export optim 0} 
-    if { ! [info exists debugLevel]} {export debugLevel 3} 
+    if { ! [info exists optim]} {export optim 0}
+    if { ! [info exists debugLevel]} {export debugLevel 3}
     export commonOptions [list] ;# used for all compiler and linker calls.
     export sourceDependencyOptions [list] ;# causes dumping source file dependency list into .d file.
     export sourceLanguagePatterns [dict create \
@@ -855,7 +874,7 @@ recipe toolsCcDefault {} {
     export toolsCompilerRecipe ccCompile ;# name of recipe that can build command line options and invoke cc program (C compiler).
         # OK to use cc-style command recipe as a default; many toolchains accept that style of command line options.
     export toolsLinkerRecipe ccLink ;# name of recipe that can build command line options and invoke ld program (linker).
-    # toolsLinkerRecipe is for linking standalone executables.  these next 2 are similar, for dynamic and static libraries instead. 
+    # toolsLinkerRecipe is for linking standalone executables.  these next 2 are similar, for dynamic and static libraries instead.
     export toolsDynamicLinkerRecipe ccDynamicLink
     export toolsPackStaticLibRecipe ccPackStaticLib
     export toolsGetSourceFileDependenciesProc ccGetSourceFileDependencies
@@ -869,8 +888,8 @@ recipe toolsCcDefault {} {
     # typically that would be done only if a group of recipes needs to use a different toolchain locally than the rest of the project.
     # these lists are reasonably complete, and might not need to be overridden.
     export toolVars {
-        cc  ld  ar  readelf 
-        toolsCompilerRecipe  toolsLinkerRecipe  toolsDynamicLinkerRecipe 
+        cc  ld  ar  readelf
+        toolsCompilerRecipe  toolsLinkerRecipe  toolsDynamicLinkerRecipe
         toolsPackStaticLibRecipe  toolsGetSourceFileDependenciesProc }
     export toolOptionsVars {commonOptions sourceDependencyOptions sourceLanguagePatterns
         cLanguageOptions asmLanguageOptions linkerOptions libOptions defineSymbols}
@@ -881,7 +900,7 @@ recipe ccCompile {objectFn sourceFn} {} run {
     # run a cc-style compiler tool, passing it the local cLanguageOptions
     # and includeDirs and defineSymbols, to compile the given sourceFn
     # (and any other source dependencies such as header files) into the given objectFn.
-    # asmLanguageOptions or other language options may be selected instead of cLanguageOptions, 
+    # asmLanguageOptions or other language options may be selected instead of cLanguageOptions,
     # by comparing the filename to the patterns in sourceLanguagePatterns dictionary.
     export+ linkerObjFns $objectFn
     deps = [$toolsGetSourceFileDependenciesProc $source $objectFn]
@@ -904,14 +923,14 @@ recipe ccCompile {objectFn sourceFn} {} run {
 }
 
 recipe ccPackStaticLib {binFn} {} run {
-    # run the cc-style archiver tool to create a .a archive file having the given name 
+    # run the cc-style archiver tool to create a .a archive file having the given name
     # and containing the local linkerObjFns.
     # see ccLink for notes about Windows command length limits.
     if {[llength $linkerObjFns] == 0} {
         error "Empty list of object files to pack into archive $binFn"
     }
     if {[isNewer $binFn $linkerObjFns]} return
-    file mkdir [file dirname $binFn]        
+    file mkdir [file dirname $binFn]
     lsfn = [tempFilename]
     lscript = [open $lsfn w]
     tracer linker "Packing into $binFn:"
@@ -919,11 +938,11 @@ recipe ccPackStaticLib {binFn} {} run {
         puts $lscript $fn
         tracer linker "    $fn"
     }
-    close $lscript  
+    close $lscript
     file mkdir [file dirname $binFn]
     file delete $binFn ;# leave no file behind in case the tool fails.
     x $ar -src $binFn @$lsfn
-    file delete $lsfn    
+    file delete $lsfn
     provide pack done $binFn ;# recipes can check for this to see if a tool was really executed here, not skipped.
 }
 
@@ -936,21 +955,21 @@ recipe ccDynamicLink {binFn} {} run {
     # show symbols provided by library:
     #x objdump -t $fn
 }
-    
+
 recipe ccLink {binFn} {} run {
-    # run a cc-style linker tool, passing it the local linkerOptions, to link 
+    # run a cc-style linker tool, passing it the local linkerOptions, to link
     # the local linkerObjFns and staticLibFns and dynamicLibNames into the given binFn.
-        
+
     # build list of all objects to be linked.
     # add static library archive file names last of all, to satisfy symbol dependencies.
     # a library that defines a symbol must come AFTER the objects that use it.
-    # that's counter-intuitive, but that's how gcc (really ld) works.    
+    # that's counter-intuitive, but that's how gcc (really ld) works.
     objAndStaticLibs = [concat $linkerObjFns $staticLibFns]
     if {[llength $objAndStaticLibs] == 0} {
         error "Empty list of object files to link into $binFn"
     }
     # avoid rerunning the link when it's not needed.
-    if [isNewer $binFn $objAndStaticLibs] return 
+    if [isNewer $binFn $objAndStaticLibs] return
     tracer linker "Linking into $binFn:"
     # build linker command line, starting with the local linkerOptions.
     # add args particular to the linker, so those are in effect for all input object files.
@@ -958,7 +977,7 @@ recipe ccLink {binFn} {} run {
             -Wl,-Map=[f+ [file dirname $binFn] linker.map]  \
             {*}[formatOptions {"-D%s"} $defineSymbols]]
     # add library search paths, so they're in effect for all libraries that follow.
-    lappend linkerOptions  {*}[formatOptions {"-L%s"} $libSearchDirs]    
+    lappend linkerOptions  {*}[formatOptions {"-L%s"} $libSearchDirs]
     # add the list of input files.
     # THIS INCLUDES STATIC LIBRARY ARCHIVE FILE NAMES;  .a files with paths.
     # note: Windows can't cope with a command long enough to pass all the files on the command line.
@@ -973,11 +992,11 @@ recipe ccLink {binFn} {} run {
         puts $lscript "INPUT($fn)"
         tracer linker "    $fn"
     }
-    close $lscript 
+    close $lscript
     # add dynamic library names last of all, to satisfy symbol dependencies.
     # a library that defines a symbol must come AFTER the objects that use it.
     # that's counter-intuitive, but that's how gcc (really ld) works.
-    lappend linkerOptions  {*}[formatOptions {"-l%s"} $dynamicLibNames]  
+    lappend linkerOptions  {*}[formatOptions {"-l%s"} $dynamicLibNames]
     tracer linker "    dynamic libs:\n        [join $dynamicLibNames "\n        "]"
     if [tracing linker] {
         tracer linker "Linker trace is enabled.  Linker will list out all object files it uses."
@@ -1002,7 +1021,7 @@ proc ccGetSourceFileDependencies {sourceFn  objectFn} {
     # using the cc toolchain, dependencies can be read from a .d file corresponding to the .o file.
     # in C that includes all header files that the source file #include's, and all the ones #include'd by those, etc.
     # to create the .d file, specify "-MMD -MT sources" on every call to cc.
-    
+
     dependencyDumpFn = [file rootname $objectFn].d
     if { ! [file readable $dependencyDumpFn]} return [list]
     f = [open $dependencyDumpFn r]
@@ -1055,7 +1074,7 @@ recipe toolsClangC11 {} {
 
 recipe toolsGcc {} {
     # gcc toolchain settings for all recipes.  GCC for the PC's native operating system with GNU libstdc++.
-    export cc g++ 
+    export cc g++
     export ld $cc  ;# use same tool again for linking.
     export commonOptions [list -pipe -O$optim -g$debugLevel -Wall -fmessage-length=0 -fPIC]
     export sourceDependencyOptions [list -MMD -MT sources] ;# causes dumping source file dependency list into .d file.
@@ -1066,7 +1085,7 @@ recipe toolsGcc {} {
 } run {}
 
 recipe toolsGccClangLib {} {
-    # for gcc with clang's libc++  
+    # for gcc with clang's libc++
     require toolsGcc
     export cLanguageOptions [list {*}$commonOptions -c -xc++  \
         -std=c++14 -stdlib=libstdc++ {*}$sourceDependencyOptions  \
@@ -1078,7 +1097,7 @@ recipe toolsGccClangLib {} {
 recipe toolsGccArm {} {
     # gcc ARM cross-compile toolchain settings for all recipes.  GCC for embedded devices with Linux EABI and ARM hard-float.
     require toolsGcc
-    export cc arm-linux-gnueabihf-g++ 
+    export cc arm-linux-gnueabihf-g++
     export ld $cc  ;# use same tool again for linking.
     export ar arm-linux-gnueabihf-ar
     export readelf arm-linux-gnueabihf-readelf
@@ -1092,7 +1111,7 @@ recipe toolsGccArmC11 {} {
 } run {}
 
 recipe toolsGccArmClangLib {} {
-    # for ARM cross-compile with gcc with clang's libc++; 
+    # for ARM cross-compile with gcc with clang's libc++;
     # see http://libcxx.llvm.org/docs/UsingLibcxx.html#using-libc-with-gcc
     require toolsGccArm
     export cLanguageOptions [list {*}$commonOptions -c -xc++  \

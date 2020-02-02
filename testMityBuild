@@ -1,5 +1,28 @@
 #!/usr/bin/env tclsh
 
+# MityBuild
+# Copyright 2018 Mark Hubbard, a.k.a. "TheMarkitecht"
+# http://www.TheMarkitecht.com
+#
+# Project home:  http://github.com/The-Markitecht/MityBuild
+# MityBuild is a small, simple project builder tool that still provides
+# impressive power, ease, flexibility, and control.
+#
+# This file is part of MityBuild.
+#
+# MityBuild is free software: you can redistribute it and/or modify
+# it under the terms of the GNU Lesser General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# MityBuild is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU Lesser General Public License for more details.
+#
+# You should have received a copy of the GNU Lesser General Public License
+# along with MityBuild.  If not, see <https://www.gnu.org/licenses/>.
+
 package require MityBuild
 
 set testRecipes {
@@ -37,10 +60,10 @@ set testRecipes {
         cd d
         file mkdir e
         file copy [f+ $::builderDir libMityBuild] e
-    }        
+    }
 
     recipe settings5 {} {} run {}
-    
+
     recipe test5 {} {} run {
         # shorthand assignments with literals.
         a = 5
@@ -62,7 +85,7 @@ set testRecipes {
         a = "mark$a"
         assert {$a eq {mark5}}
         a = {$nonexistent}
-        assert {$a eq {$nonexistent}}        
+        assert {$a eq {$nonexistent}}
         # shorthand indexing with literals.
         people = [dict create mark 40 julie 45 kids [dict create aiden 9 andrea 8]]
         assert {[people @ mark] == 40}
@@ -150,11 +173,11 @@ set testRecipes {
     }
 
     recipe settings7 {} {} run {}
-    
+
     recipe test7 {} {} run {
         # speed tests for shorthand.
         d @ a = *
-        
+
         s = {}
         begin = [clock clicks -milliseconds]
         for {i = 0} {$i < 20000} {incr i} {
@@ -238,7 +261,7 @@ set testRecipes {
             x ls -l $fn
         }
     }
-    
+
     recipe settings30 {} {} run {}
 
     recipe test30 {} {} run {
@@ -268,7 +291,7 @@ set testRecipes {
         close $f
         require toolsClang
         require compileAndLink testProgram linkExecutable $testRoot \
-            [findFiles {*.cpp *.CPP} [notHiddenPattern] $testRoot] 
+            [findFiles {*.cpp *.CPP} [notHiddenPattern] $testRoot]
         assert {[file exists testProgram]}
         set output [x ./testProgram 2>@stderr <@stdin]
         assert {[string trim $output] eq {hello}}
@@ -279,10 +302,10 @@ set testRecipes {
     recipe test50 {} {} run {
         # testing findFiles to verify it works.
         require testFileTree
-        set allFns myOldFileList 
+        set allFns myOldFileList
         set all [findFiles lib* [notHiddenPattern] $testRoot]
         tracer tests "found: $all"
-        assert {[llength $all] == 3}    
+        assert {[llength $all] == 3}
         assert {$all eq [list  \
             [f+ $testRoot a b c libMityBuild]  \
             [f+ $testRoot a b d libMityBuild]  \
@@ -301,7 +324,7 @@ set testRecipes {
         require foreignLibraryTest
         assert {$cc eq {clang++}}
     }
-    
+
     recipe foreignLibraryTest {} {} run {
         trapExports $toolVars
         assert {$cc eq {clang++}}
@@ -309,16 +332,16 @@ set testRecipes {
         assert {$cc eq {special-gcc}}
         require compileForeign
     }
-    
+
     recipe toolsForeign {} {
         export cc special-gcc
         assert {$cc eq {special-gcc}}
     } run {}
-    
+
     recipe compileForeign {} {} run {
         assert {$cc eq {special-gcc}}
     }
-    
+
     recipe settings70 {} {} run {}
 
     recipe test70 {} {} run {
@@ -335,7 +358,7 @@ set testRecipes {
         assert {[info exists lib70path]}
         assert {[info exists lib70ran]}
     }
-    
+
     recipe lib70 {p1 p2 pList} {
         assert {$p1 eq {one}}
         assert {$p2 eq {two}}
@@ -345,7 +368,7 @@ set testRecipes {
     } run {
         export lib70ran junk
     }
-    
+
 }
 
 puts stderr ===============================================

@@ -1,4 +1,29 @@
+# MityBuild
+# Copyright 2018 Mark Hubbard, a.k.a. "TheMarkitecht"
+# http://www.TheMarkitecht.com
+#
+# Project home:  http://github.com/The-Markitecht/MityBuild
+# MityBuild is a small, simple project builder tool that still provides
+# impressive power, ease, flexibility, and control.
+#
+# This file is part of MityBuild.
+#
+# MityBuild is free software: you can redistribute it and/or modify
+# it under the terms of the GNU Lesser General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# MityBuild is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU Lesser General Public License for more details.
+#
+# You should have received a copy of the GNU Lesser General Public License
+# along with MityBuild.  If not, see <https://www.gnu.org/licenses/>.
+
+
 # object-oriented programming framework for Tcl 8.6 and maybe prior versions.
+# experimental only - this is not used in MityBuild.
 
 package require MityBuild
 
@@ -6,20 +31,20 @@ rename ::unknown ::oopOldUnknown
 proc ::unknown {args} {
     set parts [split [lindex $args 0] . ]
     if {[llength $parts] > 1} {
-        
+
     }
     ::oopOldUnknown {*}$args
 }
 
 proc class {clsName clsBody} {
     # declare a class type containing one or more "var" and/or "method".
-    
+
     # clear out a namespace with the same name as the class, for storing its metadata.
     catch {namespace delete ${clsName}}
     namespace eval $clsName {}
     set ${clsName}::body $clsBody
     set ${clsName}::template [dict create class $clsName]
-    
+
     # define methods of the object.
     eval $clsBody
 
@@ -30,10 +55,10 @@ proc class {clsName clsBody} {
 
 proc newObject {clsName objName ctorArgs} {
     # only for internal use of OOP framework.  instantiates an object of the given class.
-    
+
     upvar 2 $objName this
     set this [set ${clsName}::template]
-    
+
     # call object ctor, if any.
     if {[llength [info commands ${clsName}::ctor]]} {
         ${clsName}::ctor {*}$ctorArgs
@@ -46,14 +71,14 @@ proc newObject {clsName objName ctorArgs} {
 
 proc inherit {baseClassName} {
     # inherits the methods and variables of the given base class into the current class.
-    # overridden base class methods are accessible with syntax 'base.myMethod'. 
+    # overridden base class methods are accessible with syntax 'base.myMethod'.
     eval [set ${baseClassName}::body]
     var baseClass $baseClassName
 }
 
 proc var {varName {value {}}} {
     # declare an instance variable that will be directly readable & writable
-    # as a local in all method bodies. 
+    # as a local in all method bodies.
     upvar 1 this this
     lappend ${this}::vars $varName
     lappend ${this}::vars2 $varName $varName
@@ -86,7 +111,7 @@ proc defaultCtor {ctorArgs} {
     upvar this this
     foreach {n v} $ctorArgs {
         $this $n $v
-    }        
+    }
 }
 
 proc dumpNs {ns indent} {
@@ -117,7 +142,7 @@ proc testCode {} {
         }
     }
     nsTest::m2
-    
+
     class Pet {
         var color black
         var species
@@ -130,16 +155,16 @@ proc testCode {} {
             species = $species_
             color = $color_
             age = 5
-        }        
+        }
 
         method txt {} {
             return "$class $this is a $color $species."
         }
-        
+
         method older {} {
             return [incr age]
         }
-        
+
         method makeTag {} {
             return [txt]
         }
@@ -167,7 +192,7 @@ proc testCode {} {
     }
     Snake.new boo length 16
     puts "length [boo length]"
-    
+
     # test refusing to set/get a nonexistent var
     assert {[catch {boo color black}]}
     puts [lindex [split $::errorInfo \n] 0]
@@ -220,7 +245,7 @@ proc testCode {} {
         sum.add 5
         sum.add 5
         assert {[sum tot] == 15}
-    }    
+    }
 
     # test scope and lifetime of a local object.
     proc locals {} {
@@ -232,7 +257,7 @@ proc testCode {} {
     locals
     assert { ! [namespace exists slinky]}
     assert { ! [llength [info commands slinky]]}
-    
+
     # test method call on nested object.
     class House {
         var rooms
@@ -255,13 +280,13 @@ to assign, and to call.
 
 fix difficulties around object scope.  objects created
 in procs are not local; they're global, and visible outside the proc.  they can clash with
-names of others outside the proc.  
+names of others outside the proc.
 
 fix difficulties around object lifetime.  objects created
 in procs live on after the proc ends, resulting
-in a resource leak (using dynamic name each call) or the need to destroy & recreate in 
+in a resource leak (using dynamic name each call) or the need to destroy & recreate in
 each call (using fixed name).  other issues too.
-    
+
 explore any existing support for multiple inheritance.  probly works fine but only memorizes name of final-given base class.
 
 re-test without MityBuild?  maybe only the test cases require it.
